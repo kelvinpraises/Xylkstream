@@ -1,0 +1,11 @@
+node_modules
+dist
+*.sqlite
+.env*.local
+.env
+!.env.example
+output.txt
+.mastra
+*.db
+*.db-*
+tmp
