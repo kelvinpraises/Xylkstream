@@ -1,0 +1,27 @@
+{
+  "name": "Hello World",
+  "version": "1.0.0",
+  "description": "Simple skill demonstrating MCP protocol with greeting tools and isolated storage",
+  "author": "hdiop",
+  "icon": "icon.svg",
+  "logic": "logic/dist/index.js",
+  "ui": {
+    "entry": "ui/dist/index.html",
+    "supports_iframe": true,
+    "responsive": true,
+    "dimensions": "responsive"
+  },
+  "permissions": ["storage::isolated", "log::attach"],
+  "features": ["greeting", "storage-demo", "mcp-example"],
+  "storage_schema": {
+    "greeting": {
+      "type": "string",
+      "description": "User's saved greeting message"
+    }
+  },
+  "metadata": {
+    "created_at": "2026-01-30",
+    "last_updated": "2026-01-30",
+    "status": "active"
+  }
+}
