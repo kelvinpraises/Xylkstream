@@ -22,12 +22,9 @@ export const Route = createFileRoute("/streams/")({
   component: StreamsPage,
 });
 
-// Chain ID mapping for CAIP-2 format
+// Chain ID mapping
 const CHAIN_MAP: Record<ChainId, string> = {
-  arbitrum: "eip155:42161",
-  base: "eip155:8453",
-  optimism: "eip155:10",
-  sui: "sui:mainnet",
+  tempo: "tempo",
 };
 
 // Wizard steps
@@ -39,10 +36,7 @@ const WIZARD_STEPS = [
 ];
 
 const CHAINS: { id: ChainId; name: string; type: string }[] = [
-  { id: "arbitrum", name: "arbitrum", type: "evm-compatible" },
-  { id: "base", name: "base", type: "evm-compatible" },
-  { id: "optimism", name: "optimism", type: "evm-compatible" },
-  { id: "sui", name: "sui", type: "move-based" },
+  { id: "tempo", name: "tempo", type: "evm-compatible" },
 ];
 
 function StreamWizard({ onClose }: { onClose: () => void }) {
@@ -55,7 +49,7 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
     claimPageSubtitle: "",
   });
   
-  const { isDeployed, isDeploying, deployToEVM, deployToSui, deployedContracts } = useContractDeployment();
+  const { isDeployed, isDeploying, deployToTempo, deployedContracts } = useContractDeployment();
   const createStreamMutation = useCreateStreamWizard();
   const [hasDeployment, setHasDeployment] = useState(false);
 
@@ -123,11 +117,7 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
   const handleDeploy = async () => {
     if (!formData.chain) return;
 
-    if (formData.chain === "sui") {
-      await deployToSui();
-    } else {
-      await deployToEVM(formData.chain);
-    }
+    await deployToTempo();
     
     // Refresh deployment status
     setHasDeployment(isDeployed(formData.chain));
@@ -222,9 +212,7 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
                       </div>
                       {formData.chain && deployedContracts[formData.chain] && (
                         <div className="mt-2 text-xs font-mono text-muted-foreground">
-                          {formData.chain === "sui" 
-                            ? (deployedContracts[formData.chain] as any).packageId
-                            : (deployedContracts[formData.chain] as any).addressDriver}
+                          {(deployedContracts[formData.chain] as any).addressDriver}
                         </div>
                       )}
                     </div>

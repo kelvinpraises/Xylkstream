@@ -5,7 +5,7 @@ import { Separator } from "@/components/separator";
 import { CheckCircle2, Loader2 } from "lucide-react";
 
 interface StepReviewProps {
-  chain: "sepolia" | "sui";
+  chain: "tempo";
   recipient: string;
   recipientName: string;
   amount: string;
@@ -55,7 +55,7 @@ export function StepReview({
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">Blockchain</span>
           <Badge variant="secondary">
-            {chain === "sepolia" ? "Sepolia" : "Sui Testnet"}
+            Tempo
           </Badge>
         </div>
 
@@ -109,7 +109,7 @@ export function StepReview({
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-muted-foreground">Estimated Gas</span>
           <span className="text-sm">
-            ~{chain === "sepolia" ? "0.001 ETH" : "0.0001 SUI"}
+            ~0.001 ETH
           </span>
         </div>
       </Card>

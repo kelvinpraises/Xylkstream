@@ -8,24 +8,19 @@ interface StepAmountProps {
   asset: string;
   onAmountChange: (value: string) => void;
   onAssetChange: (value: string) => void;
-  chain: "sepolia" | "sui";
+  chain: "tempo";
 }
 
 export function StepAmount({ amount, asset, onAmountChange, onAssetChange, chain }: StepAmountProps) {
-  const assets = chain === "sepolia" 
-    ? [
-        { value: "ETH", label: "ETH", balance: "0.5" },
-        { value: "USDC", label: "USDC", balance: "1000" },
-        { value: "DAI", label: "DAI", balance: "500" },
-      ]
-    : [
-        { value: "SUI", label: "SUI", balance: "100" },
-        { value: "USDC", label: "USDC", balance: "1000" },
-      ];
+  const assets = [
+    { value: "ETH", label: "ETH", balance: "0.5" },
+    { value: "USDC", label: "USDC", balance: "1000" },
+    { value: "DAI", label: "DAI", balance: "500" },
+  ];
 
   const selectedAsset = assets.find((a) => a.value === asset);
   const usdValue = amount && !isNaN(parseFloat(amount)) 
-    ? (parseFloat(amount) * (asset === "USDC" ? 1 : asset === "ETH" ? 2000 : asset === "SUI" ? 1.5 : 1)).toFixed(2)
+    ? (parseFloat(amount) * (asset === "USDC" ? 1 : asset === "ETH" ? 2000 : 1)).toFixed(2)
     : "0.00";
 
   return (

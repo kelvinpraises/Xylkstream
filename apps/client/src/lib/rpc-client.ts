@@ -241,7 +241,7 @@ export interface PluginDetails {
 
 // Stream Wizard Types
 export interface CreateStreamFromWizardInput {
-  chainId: string; // CAIP-2 format: "eip155:8453" or "sui:mainnet"
+  chainId: string;
   name: string;
   tokenAddress: string;
   totalAmount: string;
@@ -270,7 +270,7 @@ export interface DeploymentResult {
     drips?: string;
     addressDriver?: string;
     yieldManager?: string;
-    packageId?: string; // For Sui
+    packageId?: string;
   };
   txHashes: string[];
   deployedAt: string;

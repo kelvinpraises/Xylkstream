@@ -76,7 +76,7 @@ function StreamDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">
-                {stream.chain === "sepolia" ? "Sepolia" : "Sui"}
+                Tempo
               </Badge>
               <Badge variant={stream.status === "ACTIVE" ? "default" : "secondary"}>
                 {stream.status}
@@ -177,7 +177,7 @@ function StreamDetailPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Transaction Hash</span>
                 <a
-                  href={`https://${stream.chain === "sepolia" ? "sepolia.etherscan.io" : "suiscan.xyz/testnet"}/tx/${stream.txHash}`}
+                  href={`https://explorer.tempo.xyz/tx/${stream.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline font-mono flex items-center gap-1"

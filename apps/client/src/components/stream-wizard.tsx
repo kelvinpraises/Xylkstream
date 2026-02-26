@@ -31,11 +31,11 @@ interface StreamWizardProps {
 export function StreamWizard({ claimPageId, onComplete }: StreamWizardProps) {
   const stepper = useStepper();
   const navigate = useNavigate();
-  const { isDeployed, isDeploying, deployToSepolia, deployToSui } = useContractDeployment();
+  const { isDeployed, isDeploying, deployToTempo } = useContractDeployment();
   const { createStream } = useClaimPages();
 
   // Form state
-  const [selectedChain, setSelectedChain] = useState<"sepolia" | "sui" | null>(null);
+  const [selectedChain, setSelectedChain] = useState<"tempo" | null>(null);
   const [recipient, setRecipient] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [amount, setAmount] = useState("");
@@ -52,22 +52,15 @@ export function StreamWizard({ claimPageId, onComplete }: StreamWizardProps) {
     }
   }, [stepper.current.id, selectedChain, isDeployed]);
 
-  const handleChainSelect = (chain: "sepolia" | "sui") => {
+  const handleChainSelect = (chain: "tempo") => {
     setSelectedChain(chain);
-    // Reset asset based on chain
-    if (chain === "sepolia") {
-      setAsset("USDC");
-    } else {
-      setAsset("SUI");
-    }
+    setAsset("USDC");
   };
 
   const handleDeploy = async () => {
     if (!selectedChain) return;
 
-    const result = selectedChain === "sepolia" 
-      ? await deployToSepolia()
-      : await deployToSui();
+    const result = await deployToTempo();
 
     if (result) {
       stepper.next();

@@ -173,7 +173,7 @@ function StudioPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-violet-400" />
-                  <span className="text-sm">Sui</span>
+                  <span className="text-sm">Tempo</span>
                 </div>
                 <span className="text-sm font-mono text-muted-foreground">Not connected</span>
               </div>

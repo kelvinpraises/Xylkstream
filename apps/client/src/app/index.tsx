@@ -57,7 +57,7 @@ function LoginPage() {
         {/* Info Text */}
         <p className="text-sm text-slate-400 text-center max-w-md px-4 animate-fade-in-up delay-300 mb-12">
           Stream payments to anyone while AI agents automatically deploy idle capital to
-          the highest-yield markets across Sui and EVM chains
+          the highest-yield markets on Tempo
         </p>
 
         {/* Features */}

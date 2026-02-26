@@ -8,7 +8,7 @@ interface StepRecipientProps {
   recipientName: string;
   onRecipientChange: (value: string) => void;
   onRecipientNameChange: (value: string) => void;
-  chain: "sepolia" | "sui";
+  chain: "tempo";
 }
 
 export function StepRecipient({
@@ -19,11 +19,7 @@ export function StepRecipient({
   chain,
 }: StepRecipientProps) {
   const isValidAddress = (address: string) => {
-    if (chain === "sepolia") {
-      return /^0x[a-fA-F0-9]{40}$/.test(address);
-    } else {
-      return /^0x[a-fA-F0-9]{64}$/.test(address);
-    }
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
   };
 
   return (
@@ -49,7 +45,7 @@ export function StepRecipient({
           />
           {recipient && !isValidAddress(recipient) && (
             <p className="text-xs text-destructive">
-              Invalid {chain === "sepolia" ? "Ethereum" : "Sui"} address
+              Invalid Tempo address
             </p>
           )}
         </div>

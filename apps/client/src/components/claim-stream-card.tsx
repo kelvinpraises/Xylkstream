@@ -77,7 +77,7 @@ export function ClaimStreamCard({ stream }: ClaimStreamCardProps) {
           </p>
         </div>
         <Badge variant="outline">
-          {stream.chain === "sepolia" ? "Sepolia" : "Sui"}
+          Tempo
         </Badge>
       </div>
 

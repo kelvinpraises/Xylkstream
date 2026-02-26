@@ -1,7 +1,7 @@
 /**
- * Signed Integer Utilities for Sui Chain
+ * Signed Integer Utilities
  *
- * Sui chain doesn't support native i128/i256, so the contracts use a shimmed
+ * Some chain environments don't support native i128/i256, so contracts use a shimmed
  * representation where the high bit indicates the sign:
  * - Positive: value stored as-is (high bit = 0)
  * - Negative: high bit set to 1, absolute value stored in remaining bits
