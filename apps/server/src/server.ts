@@ -1,45 +1,63 @@
 import cors from "cors";
+import http from "http";
 import dotenv from "dotenv";
 import express from "express";
-
-import eventRecoveryCron from "@/infrastructure/cron/system/event-recovery";
-import pluginCleanupCron from "@/infrastructure/cron/system/plugin-cleanup";
-import pluginDiscoveryCron from "@/infrastructure/cron/system/plugin-discovery";
-import "@/infrastructure/queue/scheduled-events/worker";
-import { errorHandler } from "@/interfaces/api/middleware/errorHandler";
-import streamsRoutes from "@/interfaces/api/routes/streams";
-import rpcRouter from "@/interfaces/rpc";
-import { validateEnvironment } from "@/utils/validate-env";
+import type { Hex } from "viem";
+import { chains, loadDeployOutput, getEntryPointAddress } from "./config/deploy-output.js";
+import { startAlto } from "./services/bundler/alto.js";
+import { createBundlerRouter } from "./interfaces/routes/bundler.js";
+import { createPaymasterSigner } from "./services/paymaster/signer.js";
+import { createPaymasterRouter } from "./interfaces/routes/paymaster.js";
 
 dotenv.config();
 
-// Validate environment variables on startup
-validateEnvironment();
-
 const app = express();
-
 app.use(cors({ origin: true }));
 app.use(express.json());
 
-// Use routes
-app.use("/events/streams", streamsRoutes);
-app.use("/rpc", rpcRouter);
-
-app.use(errorHandler);
-
 const BACKEND_PORT = process.env.BACKEND_PORT || 4848;
 
-if (!process.env.BACKEND_PORT) {
-  console.warn(
-    `[xylkstream-server]: BACKEND_PORT is not set, using default port ${BACKEND_PORT}`,
-  );
+async function boot() {
+  const executorKey = process.env.BUNDLER_EXECUTOR_KEY;
+  const paymasterSigners = new Map();
+
+  for (const chain of chains) {
+    console.log(`[xylkstream-server]: loading chain=${chain.name} (${chain.rpc})`);
+
+    const deployOutput = loadDeployOutput(chain.name);
+    const entryPoint = deployOutput ? getEntryPointAddress(deployOutput) : null;
+
+    if (entryPoint && executorKey) {
+      await startAlto(chain.name, {
+        entryPointAddress: entryPoint,
+        rpcUrl: chain.rpc,
+        executorPrivateKey: executorKey,
+        port: 0,
+      });
+    } else {
+      console.warn(`[xylkstream-server]: bundler disabled for ${chain.name} —`, !deployOutput ? "no deploy output" : !entryPoint ? "no EntryPoint" : "BUNDLER_EXECUTOR_KEY not set");
+    }
+
+    if (deployOutput && executorKey) {
+      const paymasterAddr = deployOutput.scopes.paymaster?.contracts?.verifyingPaymaster;
+      if (paymasterAddr) {
+        const signer = createPaymasterSigner(executorKey as Hex, paymasterAddr as Hex);
+        paymasterSigners.set(chain.name, signer);
+        console.log(`[xylkstream-server]: paymaster active for ${chain.name} (${paymasterAddr})`);
+      }
+    }
+  }
+
+  app.use("/bundler", createBundlerRouter());
+  app.use("/paymaster", createPaymasterRouter(paymasterSigners));
+
+  const server = http.createServer(app);
+  server.listen(BACKEND_PORT, () => {
+    console.log(`[xylkstream-server]: running at http://localhost:${BACKEND_PORT}`);
+  });
 }
 
-app.listen(BACKEND_PORT, async () => {
-  console.log(`[xylkstream-server]: running at http://localhost:${BACKEND_PORT}`);
-
-  // Start crons
-  eventRecoveryCron.start();
-  pluginCleanupCron.start();
-  pluginDiscoveryCron.start();
+boot().catch((err) => {
+  console.error("[xylkstream-server]: fatal boot error", err);
+  process.exit(1);
 });

@@ -1,22 +1,25 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { 
-  LayoutDashboard, 
-  Activity, 
-  History, 
+import {
+  LayoutDashboard,
+  Activity,
+  History,
   Users,
-  ChevronRight,
   ChevronsUpDown,
   LogOut,
   Settings2,
   Sparkles,
   Moon,
-  Sun
+  Sun,
+  Copy,
+  ExternalLink,
 } from "lucide-react";
 import * as React from "react";
-import { useAccount, useLogout } from "@/hooks";
+import { usePrivy } from "@privy-io/react-auth";
+import { useLogout } from "@/hooks";
 import { truncateAddress } from "@/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar";
 import { useTheme } from "@/providers/theme-provider";
+import { toast } from "sonner";
 import {
   Sidebar,
   SidebarContent,
@@ -45,27 +48,27 @@ import { cn } from "@/utils";
 const navData = {
   platform: [
     {
-      title: "Dashboard",
+      title: "Home",
       url: "/dashboard",
       icon: LayoutDashboard,
     },
     {
-      title: "Studio",
+      title: "Assistant",
       url: "/studio",
       icon: Sparkles,
     },
     {
-      title: "Streams",
+      title: "Payments",
       url: "/streams",
       icon: Activity,
     },
     {
-      title: "History",
+      title: "Activity",
       url: "/history",
       icon: History,
     },
     {
-      title: "Contacts",
+      title: "People",
       url: "/contacts",
       icon: Users,
     },
@@ -78,16 +81,25 @@ const navData = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { data: account } = useAccount();
+  const { user } = usePrivy();
   const location = useLocation();
   const { isMobile } = useSidebar();
   const { mutate: logout } = useLogout();
   const { setTheme, theme } = useTheme();
 
+  const walletAddress = user?.wallet?.address;
+  const formattedBalance = "—";
+
   const userData = {
-    name: truncateAddress(account?.walletAddress),
-    email: "Wallet Connected",
-    avatar: `https://avatar.vercel.sh/${account?.walletAddress || "user"}`,
+    name: truncateAddress(walletAddress),
+    email: "Signed In",
+    avatar: `https://avatar.vercel.sh/${walletAddress || "user"}`,
+  };
+
+  const handleCopyAddress = () => {
+    if (!walletAddress) return;
+    navigator.clipboard.writeText(walletAddress);
+    toast.success("Address copied to clipboard");
   };
 
   return (
@@ -104,7 +116,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Platform</SidebarGroupLabel>
+          <SidebarGroupLabel>Menu</SidebarGroupLabel>
           <SidebarMenu>
             {navData.platform.map((item) => {
               const isActive = location.pathname === item.url || location.pathname.startsWith(item.url + "/");
@@ -158,6 +170,28 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 align="end"
                 sideOffset={4}
               >
+                {/* Network info section */}
+                <div className="px-2 py-2">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs text-muted-foreground">BSC Testnet</span>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
+                      Testnet
+                    </span>
+                  </div>
+                  <div className="text-sm font-mono text-foreground">
+                    {formattedBalance} <span className="text-xs text-muted-foreground">tBNB</span>
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleCopyAddress} disabled={!walletAddress}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Address
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => window.open("https://testnet.bnbchain.org/faucet-smart", "_blank")}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Get Testnet BNB
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Sun className="h-4 w-4 mr-2 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />

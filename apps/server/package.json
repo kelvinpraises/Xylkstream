@@ -15,22 +15,20 @@
     "test:deploy:evm": "tsx tests/evm-deployment.test.ts",
     "test:evm": "tsx tests/evm-protocol.test.ts",
     "test:plugin:evm": "tsx tests/evm-plugin.test.ts",
-    "test:lifecycle:evm": "tsx tests/evm-full-lifecycle.test.ts"
+    "test:lifecycle:evm": "tsx tests/evm-full-lifecycle.test.ts",
+    "test:unit": "vitest run"
   },
   "engines": {
     "node": ">=20.9.0"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.31",
-    "@ai-sdk/google": "^3.0.16",
+    "@layr-labs/ecloud-sdk": "^0.3.3",
     "@libsql/client": "^0.17.0",
     "@libsql/kysely-libsql": "^0.4.1",
-    "@mastra/core": "^1.0.4",
-    "@mastra/libsql": "^1.0.0",
-    "@mastra/loggers": "^1.0.0",
     "@mastra/mcp": "^1.0.0",
-    "@mastra/memory": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@neynar/nodejs-sdk": "^3.125.0",
+    "@pimlico/alto": "^0.0.19",
     "@privy-io/server-auth": "^1.32.5",
     "@whatwg-node/server": "^0.10.18",
     "bcrypt": "^6.0.0",
@@ -60,7 +58,9 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.10.9",
     "@types/node-cron": "^3.0.11",
+    "@types/supertest": "^7.2.0",
     "@types/yargs": "^17.0.35",
+    "supertest": "^7.2.2",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   }

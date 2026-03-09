@@ -1,12 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { Plus, Check, Loader2, StopCircle, Play, Copy, ExternalLink } from "lucide-react";
+import { useState } from "react";
+import { Plus, Check, Loader2, StopCircle, Play, Copy, XCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/button";
 import { Input } from "@/components/input";
+import { Label } from "@/components/label";
 import { Card } from "@/components/card";
-import { useContractDeployment, type ChainId } from "@/hooks/use-contract-deployment";
-import { useStreams } from "@/hooks/use-streams";
-import { useCreateStreamWizard } from "@/hooks/use-create-stream-wizard";
+import { Badge } from "@/components/badge";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/select";
 import { toast } from "sonner";
 import {
   Drawer,
@@ -17,94 +23,114 @@ import {
   DrawerFooter,
 } from "@/components/drawer";
 import { Separator } from "@/components/separator";
+import { CSVBatchDialog } from "@/components/csv-batch-dialog";
+import { useSendStream } from "@/hooks";
 
 export const Route = createFileRoute("/streams/")({
   component: StreamsPage,
 });
 
-// Chain ID mapping
-const CHAIN_MAP: Record<ChainId, string> = {
-  tempo: "tempo",
-};
+// BSC well-known tokens
+const BSC_TOKENS = [
+  { symbol: "USDT", address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd", decimals: 18 },
+  { symbol: "USDC", address: "0x64544969ed7EBf5f083679233325356EbE738930", decimals: 18 },
+  { symbol: "BUSD", address: "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", decimals: 18 },
+  { symbol: "WBNB", address: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", decimals: 18 },
+];
 
-// Wizard steps
+// Wizard steps (chain & deploy are automatic — backend auto-deploys per-account)
 const WIZARD_STEPS = [
-  { id: "chain", title: "select chain", description: "choose deployment chain" },
-  { id: "deploy", title: "deploy contract", description: "deploy or use existing" },
-  { id: "details", title: "stream details", description: "name and configuration" },
-  { id: "claim", title: "claim page", description: "setup recipient page" },
+  { id: "details", title: "payment details", description: "who and how much" },
+  { id: "claim", title: "personalize", description: "add a message" },
 ];
 
-const CHAINS: { id: ChainId; name: string; type: string }[] = [
-  { id: "tempo", name: "tempo", type: "evm-compatible" },
-];
+const isValidEmail = (email: string) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const isValidAddress = (addr: string) =>
+  /^0x[a-fA-F0-9]{40}$/.test(addr);
+
+function formatDateForInput(date: Date) {
+  return date.toISOString().split("T")[0];
+}
 
 function StreamWizard({ onClose }: { onClose: () => void }) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [wizardState, setWizardState] = useState<"form" | "processing" | "success" | "error">("form");
+  const [successStreamId, setSuccessStreamId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [copiedStreamId, setCopiedStreamId] = useState(false);
   const [formData, setFormData] = useState({
-    chain: "" as ChainId | "",
-    contractAddress: "",
     streamName: "",
+    tokenAddress: BSC_TOKENS[0].address,
+    recipient: "",
+    amount: "",
+    startDate: formatDateForInput(new Date()),
+    endDate: formatDateForInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)),
     claimPageTitle: "",
     claimPageSubtitle: "",
   });
-  
-  const { isDeployed, isDeploying, deployToTempo, deployedContracts } = useContractDeployment();
-  const createStreamMutation = useCreateStreamWizard();
-  const [hasDeployment, setHasDeployment] = useState(false);
 
-  // Check deployment status when chain changes
-  useEffect(() => {
-    if (formData.chain) {
-      setHasDeployment(isDeployed(formData.chain));
-    }
-  }, [formData.chain, isDeployed]);
+  const sendStream = useSendStream();
+  const yieldEligibility: undefined = undefined;
 
   const handleNext = async () => {
-    // Validation
-    if (currentStep === 0 && !formData.chain) {
-      toast.error("please select a chain");
-      return;
-    }
-    
-    if (currentStep === 1 && !hasDeployment && !formData.contractAddress) {
-      toast.error("please deploy a contract or enter an existing address");
-      return;
-    }
-
-    if (currentStep === 2 && !formData.streamName) {
-      toast.error("please enter a stream name");
-      return;
+    // Validation for details step
+    if (currentStep === 0) {
+      if (!formData.streamName) {
+        toast.error("please enter a stream name");
+        return;
+      }
+      if (!formData.tokenAddress) {
+        toast.error("please select a token");
+        return;
+      }
+      if (!formData.recipient) {
+        toast.error("please enter a recipient address or email");
+        return;
+      }
+      if (!isValidAddress(formData.recipient) && !isValidEmail(formData.recipient)) {
+        toast.error("please enter a valid 0x address or email");
+        return;
+      }
+      if (!formData.amount || parseFloat(formData.amount) <= 0) {
+        toast.error("please enter a valid amount");
+        return;
+      }
+      if (!formData.startDate || !formData.endDate) {
+        toast.error("please set start and end dates");
+        return;
+      }
+      if (new Date(formData.endDate) <= new Date(formData.startDate)) {
+        toast.error("end date must be after start date");
+        return;
+      }
     }
 
     if (currentStep < WIZARD_STEPS.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      // Submit - create stream via backend
-      try {
-        await createStreamMutation.mutateAsync({
-          chainId: CHAIN_MAP[formData.chain as ChainId],
-          name: formData.streamName,
-          tokenAddress: "0x0000000000000000000000000000000000000000", // TODO: Add token selection to wizard
-          totalAmount: "1000", // TODO: Add amount field to wizard
-          recipients: [
-            {
-              address: "0x0000000000000000000000000000000000000000", // TODO: Add recipient field to wizard
-              percentage: 100,
-            },
-          ],
-          vestingSchedule: {
-            type: "linear",
-            startDate: new Date().toISOString(),
-            endDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 days from now
-          },
-        });
-        
-        toast.success("stream created successfully!");
-        onClose();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "failed to create stream");
-      }
+      // Submit - create stream on-chain via AddressDriver
+      setWizardState("processing");
+
+      const startTimestamp = new Date(formData.startDate).getTime() / 1000;
+      const endTimestamp = new Date(formData.endDate).getTime() / 1000;
+      const durationSeconds = Math.floor(endTimestamp - startTimestamp);
+      const selectedToken = BSC_TOKENS.find(t => t.address === formData.tokenAddress);
+
+      sendStream.mutateAsync({
+        tokenAddress: formData.tokenAddress as `0x${string}`,
+        recipientAddress: formData.recipient as `0x${string}`,
+        totalAmount: formData.amount,
+        tokenDecimals: selectedToken?.decimals ?? 18,
+        durationSeconds,
+      }).then((result) => {
+        setSuccessStreamId(result.txHash);
+        setWizardState("success");
+      }).catch((error: unknown) => {
+        setErrorMessage(error instanceof Error ? error.message : "failed to create stream");
+        setWizardState("error");
+      });
     }
   };
 
@@ -114,263 +140,339 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const handleDeploy = async () => {
-    if (!formData.chain) return;
-
-    await deployToTempo();
-    
-    // Refresh deployment status
-    setHasDeployment(isDeployed(formData.chain));
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget && wizardState !== "processing") {
+      onClose();
+    }
   };
 
+  const handleCopyStreamId = () => {
+    if (!successStreamId) return;
+    navigator.clipboard.writeText(String(successStreamId));
+    setCopiedStreamId(true);
+    toast.success("stream ID copied");
+    setTimeout(() => setCopiedStreamId(false), 2000);
+  };
+
+  const selectedToken = BSC_TOKENS.find((t) => t.address === formData.tokenAddress);
+
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <Card className="max-w-3xl w-full p-8">
-        <div className="mb-8">
-          <h2 className="text-2xl font-serif font-light mb-2 lowercase">create new stream</h2>
-          <p className="text-sm text-muted-foreground">
-            step {currentStep + 1} of {WIZARD_STEPS.length}
-          </p>
-        </div>
-
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {WIZARD_STEPS.map((step, index) => (
-              <div key={step.id} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
-                      index <= currentStep
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : "border-border text-muted-foreground"
-                    }`}
-                  >
-                    {index < currentStep ? <Check className="w-5 h-5" /> : index + 1}
-                  </div>
-                  <div className="mt-2 text-center">
-                    <div className="text-xs font-medium lowercase">{step.title}</div>
-                    <div className="text-xs text-muted-foreground lowercase">{step.description}</div>
-                  </div>
-                </div>
-                {index < WIZARD_STEPS.length - 1 && (
-                  <div
-                    className={`h-0.5 flex-1 mx-2 transition-colors ${
-                      index < currentStep ? "bg-primary" : "bg-border"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+    <div
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      onClick={handleBackdropClick}
+    >
+      <Card className="max-w-3xl w-full p-8" onClick={(e) => e.stopPropagation()}>
+        {wizardState === "processing" && (
+          <div className="flex flex-col items-center justify-center min-h-[350px] gap-4">
+            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+            <h2 className="text-xl font-serif font-light lowercase">creating your payment...</h2>
+            <p className="text-sm text-muted-foreground lowercase">submitting to the blockchain</p>
           </div>
-        </div>
+        )}
 
-        {/* Step Content */}
-        <div className="min-h-[300px] mb-8">
-          {currentStep === 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium lowercase">select blockchain</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {CHAINS.map((chain) => (
-                  <button
-                    key={chain.id}
-                    onClick={() => setFormData({ ...formData, chain: chain.id })}
-                    className={`p-6 rounded-xl border-2 transition-all text-left ${
-                      formData.chain === chain.id
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="text-lg font-medium lowercase">{chain.name}</div>
-                    <div className="text-sm text-muted-foreground mt-1 lowercase">
-                      {chain.type}
-                    </div>
-                    {formData.chain === chain.id && isDeployed(chain.id) && (
-                      <div className="mt-2 flex items-center gap-1 text-xs text-primary">
-                        <Check className="w-3 h-3" />
-                        deployed
+        {wizardState === "success" && (
+          <div className="flex flex-col items-center justify-center min-h-[350px] gap-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h2 className="text-xl font-serif font-light lowercase">payment sent!</h2>
+            {successStreamId && (
+              <div className="flex items-center gap-2 mt-2">
+                <code className="text-sm font-mono bg-muted/30 px-3 py-2 rounded-lg text-muted-foreground">
+                  stream #{successStreamId}
+                </code>
+                <Button variant="ghost" size="icon" onClick={handleCopyStreamId} className="shrink-0 h-8 w-8">
+                  {copiedStreamId ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5" />
+                  )}
+                </Button>
+              </div>
+            )}
+            <Button onClick={onClose} className="mt-4 lowercase">
+              done
+            </Button>
+          </div>
+        )}
+
+        {wizardState === "error" && (
+          <div className="flex flex-col items-center justify-center min-h-[350px] gap-4">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+              <XCircle className="w-8 h-8 text-destructive" />
+            </div>
+            <h2 className="text-xl font-serif font-light lowercase">something went wrong</h2>
+            <p className="text-sm text-muted-foreground text-center max-w-md">{errorMessage}</p>
+            <div className="flex gap-3 mt-4">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                className="lowercase"
+              >
+                cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setWizardState("form");
+                  setErrorMessage("");
+                }}
+                className="lowercase"
+              >
+                try again
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {wizardState === "form" && (
+          <>
+            <div className="mb-8">
+              <h2 className="text-2xl font-serif font-light mb-2 lowercase">set up a new payment</h2>
+              <p className="text-sm text-muted-foreground">
+                step {currentStep + 1} of {WIZARD_STEPS.length}
+              </p>
+            </div>
+
+            {/* Progress Steps */}
+            <div className="mb-8">
+              <div className="flex items-center justify-between">
+                {WIZARD_STEPS.map((step, index) => (
+                  <div key={step.id} className="flex items-center flex-1">
+                    <div className="flex flex-col items-center flex-1">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-colors ${
+                          index <= currentStep
+                            ? "bg-primary border-primary text-primary-foreground"
+                            : "border-border text-muted-foreground"
+                        }`}
+                      >
+                        {index < currentStep ? <Check className="w-5 h-5" /> : index + 1}
                       </div>
+                      <div className="mt-2 text-center">
+                        <div className="text-xs font-medium lowercase">{step.title}</div>
+                        <div className="text-xs text-muted-foreground lowercase">{step.description}</div>
+                      </div>
+                    </div>
+                    {index < WIZARD_STEPS.length - 1 && (
+                      <div
+                        className={`h-0.5 flex-1 mx-2 transition-colors ${
+                          index < currentStep ? "bg-primary" : "bg-border"
+                        }`}
+                      />
                     )}
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
-          )}
 
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium lowercase">deploy or connect</h3>
-              
-              {hasDeployment ? (
-                <div className="p-4 rounded-lg border border-primary/30 bg-primary/5">
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-primary mt-0.5" />
+            {/* Step Content */}
+            <div className="min-h-[300px] mb-8">
+              {currentStep === 0 && (
+                <div className="space-y-5">
+                  <h3 className="text-lg font-medium lowercase">payment details</h3>
+                  <div className="space-y-5">
+                    {/* Stream Name */}
                     <div>
-                      <div className="font-medium lowercase mb-1">contract already deployed</div>
-                      <div className="text-sm text-muted-foreground lowercase">
-                        you have an existing deployment on {formData.chain}
+                      <Label className="lowercase mb-2">payment name</Label>
+                      <Input
+                        placeholder="e.g., Monthly allowance for Alex"
+                        value={formData.streamName}
+                        onChange={(e) => setFormData({ ...formData, streamName: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1 lowercase">
+                        a name for this payment
+                      </p>
+                    </div>
+
+                    {/* Token Selection */}
+                    <div>
+                      <Label className="lowercase mb-2">token</Label>
+                      <Select
+                        value={formData.tokenAddress}
+                        onValueChange={(value) => setFormData({ ...formData, tokenAddress: value })}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="select a token" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {BSC_TOKENS.map((token) => {
+                            const eligibility = yieldEligibility?.tokens.find(t => t.address.toLowerCase() === token.address.toLowerCase());
+                            return (
+                              <SelectItem key={token.address} value={token.address}>
+                                <span className="lowercase">{token.symbol}</span>
+                                <span className="text-xs text-muted-foreground ml-2 font-mono">
+                                  {token.address.slice(0, 6)}...{token.address.slice(-4)}
+                                </span>
+                                {eligibility?.yieldAvailable && (
+                                  <Badge variant="secondary" className="ml-2 text-[10px] py-0 px-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                    yield eligible
+                                  </Badge>
+                                )}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Recipient */}
+                    <div>
+                      <Label className="lowercase mb-2">recipient</Label>
+                      <Input
+                        placeholder="0x... address or email@example.com"
+                        value={formData.recipient}
+                        onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1 lowercase">
+                        enter an address or email
+                      </p>
+                    </div>
+
+                    {/* Amount */}
+                    <div>
+                      <Label className="lowercase mb-2">
+                        amount
+                        {selectedToken && (
+                          <span className="text-muted-foreground font-normal ml-1">
+                            ({selectedToken.symbol})
+                          </span>
+                        )}
+                      </Label>
+                      <Input
+                        type="number"
+                        placeholder="e.g., 10000"
+                        min="0"
+                        step="any"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      />
+                    </div>
+
+                    {/* Duration */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label className="lowercase mb-2">start date</Label>
+                        <Input
+                          type="date"
+                          value={formData.startDate}
+                          onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                        />
                       </div>
-                      {formData.chain && deployedContracts[formData.chain] && (
-                        <div className="mt-2 text-xs font-mono text-muted-foreground">
-                          {(deployedContracts[formData.chain] as any).addressDriver}
-                        </div>
-                      )}
+                      <div>
+                        <Label className="lowercase mb-2">end date</Label>
+                        <Input
+                          type="date"
+                          value={formData.endDate}
+                          onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              ) : (
-                <>
+              )}
+
+              {currentStep === 1 && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium lowercase">personalize</h3>
                   <p className="text-sm text-muted-foreground lowercase">
-                    {formData.chain
-                      ? `deploy a new contract on ${formData.chain} or connect to existing`
-                      : "select a chain first"}
+                    add a message for the person you're sending to
                   </p>
-                  <div className="space-y-3">
-                    <Button 
-                      variant="outline" 
-                      className="w-full justify-start h-auto p-4"
-                      onClick={handleDeploy}
-                      disabled={!formData.chain || isDeploying}
-                    >
-                      {isDeploying ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : null}
-                      <div className="text-left">
-                        <div className="font-medium lowercase">
-                          {isDeploying ? "deploying..." : "deploy new contract"}
-                        </div>
-                        <div className="text-xs text-muted-foreground lowercase">
-                          create a fresh deployment on {formData.chain || "selected chain"}
-                        </div>
-                      </div>
-                    </Button>
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-border" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-card px-2 text-muted-foreground">or</span>
-                      </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label className="lowercase mb-2">page title</Label>
+                      <Input
+                        placeholder="e.g., Happy Birthday!"
+                        value={formData.claimPageTitle}
+                        onChange={(e) =>
+                          setFormData({ ...formData, claimPageTitle: e.target.value })
+                        }
+                      />
                     </div>
                     <div>
-                      <label className="text-sm font-medium lowercase mb-2 block">
-                        existing contract address
-                      </label>
+                      <Label className="lowercase mb-2">subtitle (optional)</Label>
                       <Input
-                        placeholder="0x..."
-                        value={formData.contractAddress}
+                        placeholder="e.g., Here's a little something for you"
+                        value={formData.claimPageSubtitle}
                         onChange={(e) =>
-                          setFormData({ ...formData, contractAddress: e.target.value })
+                          setFormData({ ...formData, claimPageSubtitle: e.target.value })
                         }
                       />
                     </div>
                   </div>
-                </>
+
+                  {/* Summary */}
+                  <Separator className="my-4" />
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium lowercase">payment summary</h4>
+                    <div className="rounded-lg border border-border p-4 space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground lowercase">token</span>
+                        <span className="font-mono">{selectedToken?.symbol || "---"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground lowercase">amount</span>
+                        <span className="font-mono">{formData.amount || "---"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground lowercase">recipient</span>
+                        <span className="font-mono text-xs truncate max-w-[200px]">
+                          {formData.recipient || "---"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground lowercase">duration</span>
+                        <span className="lowercase">
+                          {formData.startDate} to {formData.endDate}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
-          )}
 
-          {currentStep === 2 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium lowercase">stream details</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium lowercase mb-2 block">
-                    stream name
-                  </label>
-                  <Input
-                    placeholder="e.g., q1 2026 team payments"
-                    value={formData.streamName}
-                    onChange={(e) => setFormData({ ...formData, streamName: e.target.value })}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1 lowercase">
-                    a descriptive name for this payment stream collection
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 3 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium lowercase">claim page setup</h3>
-              <p className="text-sm text-muted-foreground lowercase">
-                create a page where recipients can view and claim their streams
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium lowercase mb-2 block">
-                    page title
-                  </label>
-                  <Input
-                    placeholder="e.g., team payments"
-                    value={formData.claimPageTitle}
-                    onChange={(e) =>
-                      setFormData({ ...formData, claimPageTitle: e.target.value })
-                    }
-                  />
-                </div>
-                <div>
-                  <label className="text-sm font-medium lowercase mb-2 block">
-                    subtitle (optional)
-                  </label>
-                  <Input
-                    placeholder="e.g., claim your vested tokens"
-                    value={formData.claimPageSubtitle}
-                    onChange={(e) =>
-                      setFormData({ ...formData, claimPageSubtitle: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={onClose} className="lowercase">
-            cancel
-          </Button>
-          <div className="flex gap-2">
-            {currentStep > 0 && (
-              <Button variant="outline" onClick={handleBack} className="lowercase">
-                back
+            {/* Actions */}
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" onClick={onClose} className="lowercase">
+                cancel
               </Button>
-            )}
-            <Button 
-              onClick={handleNext} 
-              className="lowercase"
-              disabled={createStreamMutation.isPending}
-            >
-              {createStreamMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  creating...
-                </>
-              ) : currentStep === WIZARD_STEPS.length - 1 ? (
-                "create stream"
-              ) : (
-                "next"
-              )}
-            </Button>
-          </div>
-        </div>
+              <div className="flex gap-2">
+                {currentStep > 0 && (
+                  <Button variant="outline" onClick={handleBack} className="lowercase">
+                    back
+                  </Button>
+                )}
+                <Button
+                  onClick={handleNext}
+                  className="lowercase"
+                >
+                  {currentStep === WIZARD_STEPS.length - 1 ? "send payment" : "next"}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
 }
 
 // Stream detail drawer component
-function StreamDetailDrawer({ 
-  stream, 
-  open, 
-  onOpenChange 
-}: { 
+function StreamDetailDrawer({
+  stream,
+  open,
+  onOpenChange
+}: {
   stream: any | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
+  const streamId = stream?.id ?? 0;
+  void streamId;
+  const pauseStream: any = { mutate: () => {} };
+  const resumeStream: any = { mutate: () => {} };
+  const cancelStream: any = { mutate: () => {} };
+
   if (!stream) return null;
 
   const progress = ((stream.totalDistributed || 0) / (stream.totalAmount || 1)) * 100;
@@ -389,14 +491,14 @@ function StreamDetailDrawer({
 
   const handlePauseResume = () => {
     if (stream.status === "ACTIVE") {
-      toast.success("stream paused");
+      pauseStream.mutate();
     } else {
-      toast.success("stream resumed");
+      resumeStream.mutate();
     }
   };
 
   const handleStop = () => {
-    toast.success("stream stopped");
+    cancelStream.mutate();
   };
 
   return (
@@ -405,7 +507,7 @@ function StreamDetailDrawer({
         <DrawerHeader>
           <DrawerTitle className="lowercase">{stream.title}</DrawerTitle>
           <DrawerDescription className="lowercase">
-            stream configuration and details
+            payment details
           </DrawerDescription>
         </DrawerHeader>
 
@@ -428,7 +530,7 @@ function StreamDetailDrawer({
                 />
                 <span className="text-sm font-light lowercase">{stream.status}</span>
               </div>
-              
+
               <div className="h-0.5 bg-muted rounded-full overflow-hidden mb-2">
                 <div
                   className="h-full bg-foreground/50 relative"
@@ -451,10 +553,10 @@ function StreamDetailDrawer({
             <div className="space-y-3 mb-6">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="text-xs text-muted-foreground lowercase mb-1">rate</div>
+                  <div className="text-xs text-muted-foreground lowercase mb-1">sending</div>
                   <div className="text-base font-light font-mono">
-                    {(stream.amountPerPeriod / stream.periodDuration).toFixed(4)}
-                    <span className="text-xs text-muted-foreground ml-1">/s</span>
+                    {((stream.amountPerPeriod / stream.periodDuration) * 86400 * 30).toFixed(2)}
+                    <span className="text-xs text-muted-foreground ml-1">/mo</span>
                   </div>
                 </div>
                 <div>
@@ -512,12 +614,12 @@ function StreamDetailDrawer({
               {stream.status === "ACTIVE" ? (
                 <>
                   <StopCircle className="w-4 h-4 mr-2" />
-                  pause stream
+                  pause payment
                 </>
               ) : (
                 <>
                   <Play className="w-4 h-4 mr-2" />
-                  resume stream
+                  resume payment
                 </>
               )}
             </Button>
@@ -527,7 +629,7 @@ function StreamDetailDrawer({
               onClick={handleStop}
             >
               <StopCircle className="w-4 h-4 mr-2" />
-              stop stream
+              stop payment
             </Button>
           </div>
         </DrawerFooter>
@@ -540,7 +642,8 @@ function StreamsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [selectedStream, setSelectedStream] = useState<any | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const { data: streams = [], isLoading } = useStreams();
+  const streams: any[] = [];
+  const isLoading = false;
 
   const handleStreamClick = (stream: any) => {
     setSelectedStream(stream);
@@ -554,19 +657,22 @@ function StreamsPage() {
         <div className="flex items-end justify-between mb-6">
           <div>
             <h1 className="text-4xl md:text-5xl font-serif font-light tracking-tight text-foreground mb-3">
-              Streams
+              Payments
             </h1>
             <p className="text-muted-foreground text-lg lowercase">
-              manage your payment stream collections
+              manage your payments
             </p>
           </div>
-          <button
-            onClick={() => setWizardOpen(true)}
-            className="px-8 py-4 text-lg rounded-full bg-gradient-to-r from-[#0B1221] to-[#0f172a] border border-cyan-500/30 text-white font-medium hover:border-cyan-400/60 transition-all shadow-[0_0_25px_-8px_rgba(6,182,212,0.4)] hover:shadow-[0_0_35px_-5px_rgba(6,182,212,0.6)] flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="lowercase">new stream</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <CSVBatchDialog />
+            <button
+              onClick={() => setWizardOpen(true)}
+              className="px-8 py-4 text-lg rounded-full bg-gradient-to-r from-[#0B1221] to-[#0f172a] border border-amber-500/30 text-white font-medium transition-all flex items-center gap-2 hover:border-amber-400/60 shadow-[0_0_25px_-8px_rgba(251,191,36,0.3)] hover:shadow-[0_0_35px_-5px_rgba(251,191,36,0.5)]"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="lowercase">new payment</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -574,11 +680,11 @@ function StreamsPage() {
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
         {isLoading ? (
           <div className="col-span-full text-center py-12 text-muted-foreground lowercase">
-            loading streams...
+            loading payments...
           </div>
         ) : streams.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground lowercase">
-            no streams yet. create your first stream to get started.
+            no payments yet. send your first payment to get started.
           </div>
         ) : (
           streams.map((collection) => {
@@ -619,7 +725,7 @@ function StreamsPage() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div>
-                    <div className="text-xs text-muted-foreground lowercase mb-1">distributed</div>
+                    <div className="text-xs text-muted-foreground lowercase mb-1">delivered</div>
                     <div className="text-lg font-light font-mono">
                       {collection.totalDistributed.toLocaleString()}
                     </div>
@@ -627,8 +733,8 @@ function StreamsPage() {
                   <div>
                     <div className="text-xs text-muted-foreground lowercase mb-1">rate</div>
                     <div className="text-lg font-light font-mono">
-                      {streamRate.toFixed(4)}
-                      <span className="text-xs text-muted-foreground ml-1">/s</span>
+                      {(streamRate * 86400 * 30).toFixed(2)}
+                      <span className="text-xs text-muted-foreground ml-1">/mo</span>
                     </div>
                   </div>
                 </div>
@@ -660,12 +766,12 @@ function StreamsPage() {
 
       {/* Wizard */}
       {wizardOpen && <StreamWizard onClose={() => setWizardOpen(false)} />}
-      
+
       {/* Stream Detail Drawer */}
-      <StreamDetailDrawer 
-        stream={selectedStream} 
-        open={drawerOpen} 
-        onOpenChange={setDrawerOpen} 
+      <StreamDetailDrawer
+        stream={selectedStream}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
       />
 
       <style>{`

@@ -1,18 +1,22 @@
 import { useState } from "react";
+import { usePrivy } from "@privy-io/react-auth";
 import { Card } from "@/components/card";
 import { Button } from "@/components/button";
 import { Badge } from "@/components/badge";
 import { Progress } from "@/components/progress";
 import { Loader2, CheckCircle2, Clock } from "lucide-react";
 import { toast } from "sonner";
-import type { Stream } from "@/hooks/use-claim-pages";
+import { newHttpBatchRpcSession } from "capnweb";
+import type { AuthTarget, VestingStreamItem } from "@/lib/rpc-client";
+import { API_URL } from "@/config";
 
 interface ClaimStreamCardProps {
-  stream: Stream;
+  stream: VestingStreamItem;
 }
 
 export function ClaimStreamCard({ stream }: ClaimStreamCardProps) {
   const [isClaiming, setIsClaiming] = useState(false);
+  const { getAccessToken } = usePrivy();
 
   const calculateProgress = () => {
     const now = new Date().getTime();
@@ -27,17 +31,23 @@ export function ClaimStreamCard({ stream }: ClaimStreamCardProps) {
 
   const calculateVested = () => {
     const progress = calculateProgress();
-    return (parseFloat(stream.amount) * progress) / 100;
+    return (stream.amount * progress) / 100;
   };
 
   const handleClaim = async () => {
     setIsClaiming(true);
     try {
-      // Simulate claim transaction
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      toast.success("Stream claimed successfully!");
-    } catch (error) {
-      toast.error("Failed to claim stream");
+      const token = await getAccessToken();
+      if (!token) throw new Error("Not authenticated");
+
+      const batch = newHttpBatchRpcSession<AuthTarget>(
+        `${API_URL}/rpc/external/auth`
+      );
+      const session = await batch.authenticate({ accessToken: token });
+      await session.claimStream({ streamId: stream.id });
+      toast.success("Payment collected!");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to collect");
     } finally {
       setIsClaiming(false);
     }
@@ -57,27 +67,35 @@ export function ClaimStreamCard({ stream }: ClaimStreamCardProps) {
     CANCELLED: "bg-red-500",
   }[stream.status];
 
+  const statusLabel: Record<string, string> = {
+    ACTIVE: "Sending",
+    PENDING: "Starting soon",
+    COMPLETED: "Delivered",
+    PAUSED: "Paused",
+    CANCELLED: "Cancelled",
+  };
+
   return (
     <Card className="p-6">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="text-lg font-medium">
-              {stream.recipientName || "Payment Stream"}
+              Payment #{stream.id}
             </h3>
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${statusColor}`} />
               <Badge variant="secondary" className="text-xs">
-                {stream.status}
+                {statusLabel[stream.status] || stream.status}
               </Badge>
             </div>
           </div>
           <p className="text-sm text-muted-foreground font-mono">
-            {stream.recipient.slice(0, 10)}...{stream.recipient.slice(-8)}
+            {stream.recipientAddress.slice(0, 10)}...{stream.recipientAddress.slice(-8)}
           </p>
         </div>
         <Badge variant="outline">
-          Tempo
+          BSC
         </Badge>
       </div>
 
@@ -89,8 +107,8 @@ export function ClaimStreamCard({ stream }: ClaimStreamCardProps) {
           </p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground mb-1">Vested</p>
-          <p className="text-lg font-medium text-green-600">
+          <p className="text-xs text-muted-foreground mb-1">Available</p>
+          <p className="text-lg font-medium text-amber-500">
             {vested.toFixed(4)} {stream.asset}
           </p>
         </div>
@@ -123,17 +141,17 @@ export function ClaimStreamCard({ stream }: ClaimStreamCardProps) {
         {isClaiming ? (
           <>
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Claiming...
+            Collecting...
           </>
         ) : isCompleted ? (
           <>
             <CheckCircle2 className="w-4 h-4 mr-2" />
-            Completed
+            Delivered
           </>
         ) : !canClaim ? (
-          "Nothing to Claim Yet"
+          "Nothing to collect yet"
         ) : (
-          `Claim ${vested.toFixed(4)} ${stream.asset}`
+          `Collect ${vested.toFixed(4)} ${stream.asset}`
         )}
       </Button>
     </Card>

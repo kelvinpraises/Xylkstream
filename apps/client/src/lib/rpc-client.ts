@@ -1,5 +1,5 @@
-import { newHttpBatchRpcSession, RpcStub } from "capnweb";
-import { API_URL } from "@/config";
+// Types only — server RPC (capnweb) has been removed.
+// These interfaces are kept for components that reference them as type annotations.
 
 export interface AuthTarget {
   authenticate(params: { accessToken: string }): Promise<AuthenticatedSession>;
@@ -107,6 +107,48 @@ export interface AuthenticatedSession {
     enabled: boolean;
   }): Promise<{ success: boolean }>;
 
+  // Email Resolution
+  resolveEmail(params: { email: string }): Promise<{
+    walletAddress: string | null;
+    privyDid: string | null;
+  }>;
+
+  // Batch Streams
+  batchCreateStreams(params: {
+    streams: Array<{
+      recipientAddress: string;
+      amount: string;
+      tokenAddress: string;
+      name: string;
+    }>;
+  }): Promise<{
+    results: Array<{
+      streamId: number;
+      success: boolean;
+      error?: string;
+    }>;
+  }>;
+
+  // Agent (EigenCompute TEE or Local OpenClaw)
+  launchAgent(params?: { provider?: AgentProvider }): Promise<LaunchResult>;
+  getAgentStatus(): Promise<AgentStatus | null>;
+  terminateAgent(): Promise<{ logHash: string | null }>;
+  getVerifiableLogs(): Promise<{
+    logContent: string | null;
+    logHash: string | null;
+    status: string;
+    createdAt: string;
+    terminatedAt: string | null;
+  } | null>;
+  getAgentConfig(): Promise<OpenClawConfig>;
+  getSkillsBundle(): Promise<{ files: Array<{ name: string; content: string }> }>;
+
+  // Yield Eligibility
+  getYieldEligibility(): Promise<YieldEligibility>;
+
+  // Aggregated Balances
+  getAggregatedBalances(): Promise<AggregatedBalances>;
+
   // Account
   deleteAccount(): Promise<{ success: boolean }>;
 }
@@ -120,13 +162,20 @@ export type VestingStreamStatus =
   | "CANCELLED";
 
 export interface AccountPolicy {
+  prompt: string;
+  plugins: string[];
+  budget_limits: {
+    max_stream_budget: number;
+    daily_limit: number;
+    monthly_limit: number;
+  };
   yield_optimization: {
     enabled: boolean;
     risk_tolerance: "low" | "medium" | "high";
     preferred_chains: string[];
     min_yield_threshold: number;
+    rebalance_frequency: "hourly" | "daily" | "weekly";
   };
-  plugins: string[];
   auto_compound: boolean;
   notification_preferences: {
     low_funds: boolean;
@@ -239,6 +288,39 @@ export interface PluginDetails {
   lastValidatedAt: string;
 }
 
+// Agent Types
+export type AgentProvider = "eigencompute" | "local";
+
+export interface LaunchResult {
+  provider: AgentProvider;
+  appId: string;
+  ipAddress: string | null;
+  gatewayPort: number;
+  gatewayToken: string;
+  token?: string;
+  mcpUrl?: string;
+}
+
+export interface AgentStatus {
+  appId: string;
+  ipAddress: string | null;
+  gatewayPort: number;
+  status: string;
+  provider: AgentProvider;
+  createdAt: string;
+}
+
+export interface OpenClawConfig {
+  env: Record<string, string>;
+  mcpServers: Record<string, { url: string; headers: Record<string, string> }>;
+  agents: {
+    defaults: Record<string, any>;
+    list: Array<Record<string, any>>;
+  };
+  gateway: Record<string, any>;
+  tools: Record<string, any>;
+}
+
 // Stream Wizard Types
 export interface CreateStreamFromWizardInput {
   chainId: string;
@@ -301,13 +383,32 @@ export interface ClaimHistoryItem {
   claimedAt: string;
 }
 
-/**
- * Authenticate with Privy access token and get RPC session
- */
-export async function authenticateRpcSession(
-  accessToken: string
-): Promise<RpcStub<AuthenticatedSession>> {
-  const batch = newHttpBatchRpcSession<AuthTarget>(`${API_URL}/rpc/external/auth`);
-  const session = await batch.authenticate({ accessToken });
-  return session;
+// Yield Eligibility Types
+export interface YieldEligibility {
+  tokens: Array<{
+    symbol: string;
+    address: string;
+    yieldAvailable: boolean;
+    pairedWith: string;
+    feeTier: number | null;
+  }>;
+  strategyAddress: string | null;
 }
+
+// Aggregated Balance Types
+export interface AggregatedBalances {
+  balances: Array<{
+    symbol: string;
+    address: string;
+    wallet: string;
+    drips: string;
+    yieldManager: string;
+    total: string;
+    yieldDetails: {
+      principal: string;
+      liquid: string;
+      invested: string;
+    } | null;
+  }>;
+}
+

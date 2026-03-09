@@ -1,3 +1,4 @@
+import { useMutation } from "@tanstack/react-query";
 import { usePrivy } from "@privy-io/react-auth";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -5,8 +6,12 @@ export function useLogout() {
   const { logout: privyLogout } = usePrivy();
   const navigate = useNavigate();
 
-  return async () => {
-    await privyLogout();
-    navigate({ to: "/" });
-  };
+  return useMutation({
+    mutationFn: async () => {
+      await privyLogout();
+    },
+    onSuccess: () => {
+      navigate({ to: "/" });
+    },
+  });
 }

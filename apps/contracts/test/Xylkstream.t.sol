@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 pragma solidity ^0.8.20;
 
-import {Test, console} from "forge-std/Test.sol";
-import {IDrips, AccountMetadata} from "src/IDrips.sol";
-import {DripsFacetA} from "src/DripsFacetA.sol";
-import {DripsFacetB} from "src/DripsFacetB.sol";
-import {DripsRouter} from "src/DripsRouter.sol";
-import {Streams, StreamReceiver, StreamConfig, StreamConfigImpl} from "src/Streams.sol";
-import {Splits, SplitsReceiver} from "src/Splits.sol";
-import {AddressDriver} from "src/AddressDriver.sol";
-import {Caller} from "src/Caller.sol";
-import {Managed, ManagedProxy} from "src/Managed.sol";
-import {YieldManager, IYieldStrategy} from "src/YieldManager.sol";
+import {Test} from "forge-std/Test.sol";
+import {IDrips} from "src/protocol/IDrips.sol";
+import {DripsFacetA} from "src/protocol/DripsFacetA.sol";
+import {DripsFacetB} from "src/protocol/DripsFacetB.sol";
+import {DripsRouter} from "src/protocol/DripsRouter.sol";
+import {StreamReceiver, StreamConfig, StreamConfigImpl} from "src/protocol/Streams.sol";
+import {SplitsReceiver} from "src/protocol/Splits.sol";
+import {AddressDriver} from "src/drivers/AddressDriver.sol";
+import {Caller} from "src/protocol/Caller.sol";
+import {Managed, ManagedProxy} from "src/protocol/Managed.sol";
+import {YieldManager, IYieldStrategy} from "src/yield/YieldManager.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "openzeppelin-contracts/token/ERC20/ERC20.sol";
 
@@ -57,7 +57,7 @@ contract TestStrategy is IYieldStrategy {
     {
         uint256 bal = activeToken.balanceOf(address(this));
         if (bal > 0) {
-            activeToken.transfer(msg.sender, bal);
+            require(activeToken.transfer(msg.sender, bal), "transfer failed");
         }
         withdrawn = bal;
     }
@@ -96,7 +96,7 @@ contract XylkstreamTest is Test {
         DripsFacetB facetB = new DripsFacetB();
 
         // Deploy router
-        DripsRouter router = new DripsRouter(address(facetA), address(facetB));
+        DripsRouter router = new DripsRouter(address(facetA), address(facetB), 0, admin);
 
         // Deploy ManagedProxy wrapping the router
         drips = IDrips(address(new ManagedProxy(Managed(address(router)), admin, "")));
@@ -244,12 +244,17 @@ contract XylkstreamTest is Test {
 
         // Verify stream state
         (,,, uint128 balance,) = drips.streamsState(aliceAcct, IERC20(address(token)));
+        // deposit fits in uint128, safe cast to uint256 then to uint128
+        // forge-lint: disable-next-line(unsafe-typecast)
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(balance, uint128(uint256(int256(deposit))), "Stream balance should match deposit");
 
         // Cancel stream
         vm.prank(alice);
         driver.setStreams(
             IERC20(address(token)),
+            // balance fits in uint128, safe to cast to int128
+            // forge-lint: disable-next-line(unsafe-typecast)
             newReceivers, -int128(balance), noReceivers,
             0, 0, alice
         );
@@ -312,10 +317,10 @@ contract XylkstreamTest is Test {
     function test_yield_manager_owner_deposit() public {
         uint256 depositAmt = 1000e6;
         token.approve(address(yieldManager), depositAmt);
-        yieldManager.ownerDeposit(IERC20(address(token)), depositAmt);
+        yieldManager.ownerDeposit(aliceAcct, IERC20(address(token)), depositAmt);
 
         (uint128 principal, uint128 liquid, uint128 invested) =
-            yieldManager.getBalances(IERC20(address(token)));
+            yieldManager.getBalances(aliceAcct, IERC20(address(token)));
         assertEq(principal, depositAmt, "Principal should match deposit");
         assertEq(liquid, depositAmt, "Liquid should match deposit");
         assertEq(invested, 0, "Invested should be 0");
@@ -325,11 +330,12 @@ contract XylkstreamTest is Test {
         uint256 depositAmt = 1000e6;
 
         token.approve(address(yieldManager), depositAmt);
-        yieldManager.ownerDeposit(IERC20(address(token)), depositAmt);
+        yieldManager.ownerDeposit(aliceAcct, IERC20(address(token)), depositAmt);
 
         // Open position (pass token address as strategyData so strategy knows)
         bytes memory stratData = abi.encode(address(token));
         yieldManager.positionOpen(
+            aliceAcct,
             IERC20(address(token)),
             address(strategy),
             depositAmt,
@@ -337,19 +343,20 @@ contract XylkstreamTest is Test {
         );
 
         (uint128 principal, uint128 liquid, uint128 invested) =
-            yieldManager.getBalances(IERC20(address(token)));
+            yieldManager.getBalances(aliceAcct, IERC20(address(token)));
         assertEq(liquid, 0, "Liquid should be 0 after investing");
         assertEq(invested, depositAmt, "Invested should match");
         assertEq(token.balanceOf(address(strategy)), depositAmt, "Strategy holds tokens");
 
         // Close position (strategy.withdraw transfers tokens back)
         yieldManager.positionClose(
+            aliceAcct,
             IERC20(address(token)),
             address(strategy),
             ""
         );
 
-        (principal, liquid, invested) = yieldManager.getBalances(IERC20(address(token)));
+        (principal, liquid, invested) = yieldManager.getBalances(aliceAcct, IERC20(address(token)));
         assertEq(principal, depositAmt);
         assertEq(liquid, depositAmt, "Liquid should be restored");
         assertEq(invested, 0, "Invested should be 0");
@@ -358,7 +365,7 @@ contract XylkstreamTest is Test {
     function test_yield_manager_not_authorized() public {
         vm.prank(alice);
         vm.expectRevert(YieldManager.NotAuthorized.selector);
-        yieldManager.ownerDeposit(IERC20(address(token)), 100);
+        yieldManager.ownerDeposit(aliceAcct, IERC20(address(token)), 100);
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

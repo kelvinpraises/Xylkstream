@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PrivyProvider } from "./privy-provider";
-import { RpcSessionProvider } from "./rpc-session-provider";
+import { StealthWalletProvider } from "./stealth-wallet-provider";
 import { ThemeProvider } from "./theme-provider";
 import { SidebarProvider } from "@/components/sidebar";
 
@@ -23,9 +23,9 @@ export default function RootProvider({ children }: RootProviderProps) {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <PrivyProvider>
-          <RpcSessionProvider>
+          <StealthWalletProvider>
             <SidebarProvider>{children}</SidebarProvider>
-          </RpcSessionProvider>
+          </StealthWalletProvider>
         </PrivyProvider>
       </QueryClientProvider>
     </ThemeProvider>

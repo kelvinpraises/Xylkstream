@@ -4,7 +4,7 @@ import { Card } from "@/components/card";
 import { Badge } from "@/components/badge";
 import { Progress } from "@/components/progress";
 import { Separator } from "@/components/separator";
-import { useClaimPages } from "@/hooks/use-claim-pages";
+// TODO: import { useClaimPages } from "@/hooks/use-claim-pages"; — hook deleted, restore once reimplemented
 import { ArrowLeft, ExternalLink, Pause, Play, XCircle } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 
@@ -15,10 +15,9 @@ export const Route = createFileRoute("/streams/$streamId")({
 function StreamDetailPage() {
   const { streamId } = Route.useParams();
   const navigate = useNavigate();
-  const { getStream, getClaimPage } = useClaimPages();
-
-  const stream = getStream(streamId);
-  const page = stream ? getClaimPage(stream.claimPageId) : null;
+  // TODO: const { getStream, getClaimPage } = useClaimPages();
+  const stream: null = null; // TODO: restore from useClaimPages / useDrips
+  const page: null = null; // TODO: restore from useClaimPages
 
   if (!stream) {
     return (
@@ -76,7 +75,7 @@ function StreamDetailPage() {
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="outline">
-                Tempo
+                BSC
               </Badge>
               <Badge variant={stream.status === "ACTIVE" ? "default" : "secondary"}>
                 {stream.status}
@@ -177,7 +176,7 @@ function StreamDetailPage() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Transaction Hash</span>
                 <a
-                  href={`https://explorer.tempo.xyz/tx/${stream.txHash}`}
+                  href={`https://testnet.bscscan.com/tx/${stream.txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary hover:underline font-mono flex items-center gap-1"

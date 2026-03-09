@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xylkstream — BNB Chain Hackathon 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet">
+<style>
+@font-face{font-family:'ClashDisplay';src:url('https://cdn.fontshare.com/wf/BFBSY7LX5W2U2EROCLVVTQP4VS7S4PC3/IIUX4FGTMD2LK2VWD3RVTAS4SSMUN7B5/53RZKGODFYDW3QHTIL7IPOWTBCSUEZK7.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{
+    font-family:"Inter",system-ui,-apple-system,sans-serif;
+    background:#020204;color:#fff;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+}
+
+/* ═══════════════════════════════════
+   AURORA BACKGROUND (from client app)
+   ═══════════════════════════════════ */
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.aurora .blob{position:absolute;border-radius:50%;mix-blend-mode:screen}
+.aurora .b1{top:-10%;left:-10%;width:50vw;height:50vw;background:rgba(251,191,36,0.2);filter:blur(120px);animation:aur 20s ease-in-out infinite}
+.aurora .b2{top:10%;right:-10%;width:60vw;height:60vw;background:rgba(244,63,94,0.15);filter:blur(120px);animation:aur 20s ease-in-out infinite 2s}
+.aurora .b3{bottom:-10%;left:20%;width:70vw;height:50vw;background:rgba(124,58,237,0.15);filter:blur(140px);animation:aur 20s ease-in-out infinite 4s}
+@keyframes aur{
+    0%{transform:translate(0,0) scale(1)}
+    33%{transform:translate(30px,-50px) scale(1.1)}
+    66%{transform:translate(-20px,20px) scale(0.9)}
+    100%{transform:translate(0,0) scale(1)}
+}
+
+/* ═══════════════════
+   WEBGL AMBIENT CANVAS
+   ═══════════════════ */
+#ambientCanvas{
+    position:fixed;inset:0;width:100%;height:100%;
+    z-index:1;pointer-events:none;
+    opacity:0;transition:opacity 1.2s ease;
+}
+#ambientCanvas.on{opacity:1}
+
+/* ═══════════════
+   SLIDE SYSTEM
+   ═══════════════ */
+.deck{position:relative;width:100vw;height:100vh;z-index:10}
+.slide{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;
+    opacity:0;pointer-events:none;
+    transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.slide.active{opacity:1;pointer-events:auto}
+
+/* Fade-in-up for slide children */
+.slide.active .fin{animation:finUp .9s cubic-bezier(.16,1,.3,1) both}
+.slide.active .fin.d1{animation-delay:.1s}
+.slide.active .fin.d2{animation-delay:.2s}
+.slide.active .fin.d3{animation-delay:.35s}
+.slide.active .fin.d4{animation-delay:.5s}
+.slide.active .fin.d5{animation-delay:.65s}
+.slide.active .fin.d6{animation-delay:.8s}
+@keyframes finUp{from{opacity:0;transform:translateY(24px);filter:blur(6px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* ═══════════════
+   TYPOGRAPHY
+   ═══════════════ */
+.brand{
+    font-family:"Cormorant Garamond",serif;
+    font-weight:300;font-style:italic;
+    background:linear-gradient(135deg,#fef3c7 0%,#ffffff 40%,#fecdd3 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;letter-spacing:-3px;line-height:1;
+}
+.brand.glow{animation:brandGlow 4s ease-in-out infinite}
+@keyframes brandGlow{
+    0%,100%{filter:drop-shadow(0 0 30px rgba(251,191,36,0.15))}
+    50%{filter:drop-shadow(0 0 60px rgba(251,191,36,0.35))}
+}
+
+.headline{font-weight:800;letter-spacing:-2.5px;line-height:1.05;color:#fff}
+.sub{font-weight:400;color:rgba(148,163,184,0.7);line-height:1.5}
+.accent{color:#fbbf24}
+.accent-grad{
+    background:linear-gradient(135deg,#fbbf24,#fb7185);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.warm{color:#fb923c}
+
+/* ═══════════════
+   OPENCLAW BRANDING
+   ═══════════════ */
+.openclaw-title{
+    font-family:'ClashDisplay',system-ui,sans-serif;
+    font-weight:700;font-size:clamp(48px,7vw,80px);
+    letter-spacing:-2px;line-height:1;
+    background:linear-gradient(135deg,#f0f4ff 0%,#ff4d4d 52%,#00e5cc 100%);
+    background-size:200% 200%;
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+    background-clip:text;
+    animation:gradientShift 6s ease infinite;
+}
+@keyframes gradientShift{
+    0%{background-position:0% 50%}
+    50%{background-position:100% 50%}
+    100%{background-position:0% 50%}
+}
+.openclaw-heart{
+    font-size:clamp(32px,4vw,56px);
+    color:#ff4d4d;
+    animation:heartbeat 2s ease-in-out infinite;
+    display:inline-block;
+}
+@keyframes heartbeat{
+    0%,100%{transform:scale(1)}
+    14%{transform:scale(1.15)}
+    28%{transform:scale(1)}
+    42%{transform:scale(1.1)}
+    56%{transform:scale(1)}
+}
+.openclaw-flow{display:flex;align-items:center;gap:14px;margin:20px 0;flex-wrap:wrap;justify-content:center}
+.openclaw-node{
+    padding:14px 20px;text-align:center;
+    border:1px solid rgba(148,163,184,0.06);border-radius:12px;
+    background:rgba(255,255,255,0.015);transition:all .3s ease;
+    min-width:140px;
+}
+.openclaw-node:hover{border-color:rgba(255,77,77,0.15);transform:translateY(-2px)}
+.openclaw-node h4{font-size:15px;font-weight:700;letter-spacing:-.3px;margin-bottom:2px}
+.openclaw-node p{font-size:12px;color:rgba(148,163,184,0.4);line-height:1.4}
+.openclaw-arrow{color:rgba(148,163,184,0.12);font-size:20px;flex-shrink:0}
+.openclaw-claw{width:48px;height:48px;vertical-align:middle;margin-right:8px;margin-bottom:-4px}
+
+/* ═══════════════
+   BIG STAT
+   ═══════════════ */
+.bigstat{
+    font-size:clamp(56px,8vw,96px);font-weight:900;letter-spacing:-4px;line-height:1;
+}
+.bigstat.amber{
+    background:linear-gradient(135deg,#fbbf24,#fb923c);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.bigstat.rose{
+    background:linear-gradient(135deg,#fb7185,#f43f5e);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.bigstat.violet{
+    background:linear-gradient(135deg,#a78bfa,#7c3aed);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.stat-label{
+    font-size:16px;font-weight:500;color:rgba(148,163,184,0.5);
+    letter-spacing:-.2px;margin-top:4px;
+}
+.stat-row{display:flex;gap:48px;align-items:flex-end;flex-wrap:wrap}
+.stat-block{display:flex;flex-direction:column}
+
+/* ═══════════════
+   PAGE INFO (fixed)
+   ═══════════════ */
+.page-info{
+    position:fixed;bottom:28px;left:36px;z-index:100;
+    display:flex;align-items:center;gap:10px;
+    font-size:13px;font-weight:500;color:rgba(148,163,184,0.35);letter-spacing:.5px;
+}
+.page-info .n{color:rgba(251,191,36,0.5);font-weight:700;font-size:15px}
+
+/* ═══════════════
+   NAV
+   ═══════════════ */
+.nav{position:fixed;bottom:28px;right:36px;z-index:100;display:flex;gap:8px}
+.nav button{
+    width:40px;height:40px;border-radius:50%;
+    border:1px solid rgba(148,163,184,0.12);
+    background:rgba(255,255,255,0.03);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    color:rgba(148,163,184,0.5);font-size:16px;
+    cursor:pointer;transition:all .2s ease;
+    display:flex;align-items:center;justify-content:center;
+}
+.nav button:hover{border-color:rgba(251,191,36,0.3);color:#fbbf24;background:rgba(251,191,36,0.05)}
+
+.prog{position:fixed;top:0;left:0;height:1px;background:linear-gradient(90deg,#d97706,#fb7185);z-index:100;transition:width .4s ease}
+
+/* ═══════════════════════════════════
+   SLIDE 0 — HERO
+   Matches client app login page exactly
+   ═══════════════════════════════════ */
+.s0{align-items:center;justify-content:center;text-align:center;padding:60px}
+.s0 .brand{font-size:clamp(72px,12vw,160px)}
+.s0 .tagline{font-size:clamp(18px,2.2vw,26px);color:rgba(191,219,254,0.45);font-weight:300;margin-top:16px;letter-spacing:-.2px}
+.s0 .badge{
+    margin-top:28px;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;
+    color:rgba(148,163,184,0.35);padding:8px 20px;
+    border:1px solid rgba(148,163,184,0.08);border-radius:100px;
+    background:rgba(255,255,255,0.02);backdrop-filter:blur(8px);
+}
+.s0 .info{
+    margin-top:40px;font-size:15px;color:rgba(148,163,184,0.35);
+    max-width:440px;line-height:1.65;font-weight:400;
+}
+
+/* ═══════════════════════════
+   SLIDE 1 — THE PROBLEM
+   Big "0%" as focal point
+   ═══════════════════════════ */
+.s1{padding:60px 80px}
+.s1 .zero{
+    font-size:clamp(120px,18vw,240px);font-weight:900;letter-spacing:-8px;
+    color:rgba(148,163,184,0.06);line-height:.85;
+    position:absolute;right:60px;top:50%;transform:translateY(-55%);
+    -webkit-user-select:none;user-select:none;
+}
+.s1 .zero span{
+    background:linear-gradient(180deg,rgba(148,163,184,0.12),rgba(148,163,184,0.03));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+
+/* ═══════════════════════════
+   SLIDE 2 — BIGGER PROBLEM
+   Warning quote hero
+   ═══════════════════════════ */
+.s2{padding:60px 80px;align-items:center;justify-content:center;text-align:center}
+.s2 .quote{
+    font-family:"Cormorant Garamond",serif;
+    font-size:clamp(36px,5vw,64px);font-weight:300;font-style:italic;
+    color:#fb923c;line-height:1.25;letter-spacing:-1px;
+    max-width:800px;margin-bottom:40px;
+}
+
+/* ═══════════════════════════
+   SLIDE 3 — THE SOLUTION
+   The big reveal
+   ═══════════════════════════ */
+.s3{padding:60px 80px}
+.s3 .kicker{font-size:14px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.5);margin-bottom:12px}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.chip{
+    font-size:12px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;
+    padding:5px 14px;border-radius:100px;
+    border:1px solid rgba(251,191,36,0.15);color:rgba(251,191,36,0.6);
+    background:rgba(251,191,36,0.03);
+}
+.chip.v{border-color:rgba(244,63,94,0.15);color:rgba(244,63,94,0.6);background:rgba(244,63,94,0.03)}
+
+/* ═══════════════════════════
+   SLIDE 4 — WHY NOW
+   ═══════════════════════════ */
+.why-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;flex:1;align-content:center}
+.why-card{
+    padding:32px 28px;
+    border:1px solid rgba(148,163,184,0.06);border-radius:16px;
+    background:rgba(255,255,255,0.015);
+    transition:all .3s ease;
+}
+.why-card:hover{border-color:rgba(251,191,36,0.12);transform:translateY(-2px)}
+.why-card .wn{
+    font-size:clamp(40px,5vw,56px);font-weight:900;letter-spacing:-3px;line-height:1;margin-bottom:8px;
+}
+.why-card .wn.a{color:#fbbf24}
+.why-card .wn.r{color:#fb7185}
+.why-card .wn.v{color:#a78bfa}
+.why-card .wn.o{color:#fb923c}
+.why-card h4{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px;color:rgba(255,255,255,0.8)}
+.why-card p{font-size:14px;color:rgba(148,163,184,0.45);line-height:1.5}
+
+/* ═══════════════════════════
+   SLIDE 5 — MARKET
+   ═══════════════════════════ */
+
+/* ═══════════════════════════
+   SLIDE 6 — THREE PILLARS
+   ═══════════════════════════ */
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;flex:1;align-content:center}
+.pill{
+    padding:48px 32px;text-align:center;position:relative;
+    border-right:1px solid rgba(148,163,184,0.06);
+    display:flex;flex-direction:column;align-items:center;gap:16px;
+}
+.pill:last-child{border-right:none}
+.pill .num{
+    font-size:64px;font-weight:900;letter-spacing:-3px;line-height:1;
+    background:linear-gradient(180deg,rgba(251,191,36,0.3),rgba(251,191,36,0.05));
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.pill.v .num{background:linear-gradient(180deg,rgba(167,139,250,0.35),rgba(167,139,250,0.05));-webkit-background-clip:text;background-clip:text}
+.pill.i .num{background:linear-gradient(180deg,rgba(244,63,94,0.35),rgba(244,63,94,0.05));-webkit-background-clip:text;background-clip:text}
+.pill h3{font-size:24px;font-weight:700;letter-spacing:-.5px}
+.pill h3.c1{color:#fbbf24}
+.pill h3.v1{color:#a78bfa}
+.pill h3.i1{color:#fb7185}
+.pill p{font-size:16px;color:rgba(148,163,184,0.5);line-height:1.6;max-width:280px}
+.pill p strong{color:rgba(255,255,255,0.7);font-weight:600}
+
+/* ═══════════════════════════
+   SLIDE 7 — PLUGINS
+   ═══════════════════════════ */
+.plug-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0}
+.plug{
+    padding:24px 20px;
+    border:1px solid rgba(148,163,184,0.06);border-radius:12px;
+    background:rgba(255,255,255,0.015);
+    transition:all .3s ease;display:flex;flex-direction:column;gap:6px;
+}
+.plug:hover{border-color:rgba(251,191,36,0.15);background:rgba(251,191,36,0.02);transform:translateY(-2px)}
+.plug.live{border-color:rgba(251,191,36,0.12);background:rgba(251,191,36,0.02)}
+.plug h4{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.plug p{font-size:13px;color:rgba(148,163,184,0.45);line-height:1.5}
+.plug .st{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin-top:auto;padding-top:8px}
+.plug .st.live{color:#fbbf24}
+.plug .st.plan{color:#a78bfa}
+.plug .st.open{color:#fb7185}
+
+.narr{font-size:17px;color:rgba(148,163,184,0.5);line-height:1.6;padding-left:20px;position:relative;margin-bottom:8px}
+.narr::before{content:'';position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:#fbbf24;box-shadow:0 0 8px rgba(251,191,36,0.4)}
+
+/* ═══════════════════════════
+   SLIDE 8 — EXECUTION FLOW
+   Horizontal timeline
+   ═══════════════════════════ */
+.timeline{display:flex;gap:0;flex:1;align-items:center}
+.tstep{flex:1;text-align:center;position:relative;display:flex;flex-direction:column;align-items:center;gap:10px}
+.tstep .tn{
+    width:40px;height:40px;border-radius:50%;
+    border:1px solid rgba(251,191,36,0.2);
+    background:rgba(251,191,36,0.04);
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:800;color:rgba(251,191,36,0.6);
+    position:relative;z-index:2;
+}
+.tstep.hl .tn{border-color:rgba(167,139,250,0.3);background:rgba(167,139,250,0.06);color:rgba(167,139,250,0.7)}
+.tstep.end .tn{border-color:rgba(251,191,36,0.4);background:rgba(251,191,36,0.08);color:#fbbf24;box-shadow:0 0 20px rgba(251,191,36,0.15)}
+.tstep .tt{font-size:13px;color:rgba(148,163,184,0.45);line-height:1.4;max-width:100px}
+.tstep .tt strong{color:rgba(255,255,255,0.65);font-weight:600}
+/* Connector line between steps */
+.tline{flex:0 0 1px;height:1px;background:rgba(148,163,184,0.08);flex:1;max-width:60px;margin-top:-20px}
+
+/* ═══════════════════════════
+   SLIDE 9 — ARCHITECTURE
+   ═══════════════════════════ */
+.arch{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1;justify-content:center}
+.ar{display:flex;gap:14px;align-items:center}
+.ab{
+    padding:20px 40px;border-radius:12px;
+    border:1px solid rgba(148,163,184,0.08);
+    background:rgba(255,255,255,0.015);
+    font-size:18px;font-weight:600;text-align:center;min-width:180px;
+    letter-spacing:-.2px;transition:all .3s ease;
+}
+.ab:hover{border-color:rgba(251,191,36,0.15);background:rgba(251,191,36,0.02)}
+.ab.p{color:#fbbf24;border-color:rgba(251,191,36,0.12)}
+.ab.s{color:#a78bfa;border-color:rgba(167,139,250,0.1);background:rgba(167,139,250,0.02)}
+.ab.st{color:#fb7185;border-color:rgba(244,63,94,0.1)}
+.ab.sl{border:1px dashed rgba(148,163,184,0.06);color:rgba(148,163,184,0.25)}
+.adown{font-size:20px;color:rgba(148,163,184,0.15)}
+.anote{font-size:16px;color:rgba(148,163,184,0.35);text-align:center;max-width:600px;line-height:1.6;margin-top:16px}
+.anote strong{color:rgba(251,191,36,0.5);font-weight:600}
+
+/* ═══════════════════════════
+   SLIDE 10 — ORG CONTROL
+   ═══════════════════════════ */
+.oflow{display:flex;align-items:center;gap:16px;margin:28px 0}
+.on{
+    flex:1;padding:28px 20px;text-align:center;
+    border:1px solid rgba(148,163,184,0.06);border-radius:12px;
+    background:rgba(255,255,255,0.015);transition:all .3s ease;
+}
+.on:hover{border-color:rgba(251,191,36,0.12);transform:translateY(-2px)}
+.on h4{font-size:17px;font-weight:700;letter-spacing:-.3px;margin-bottom:4px}
+.on p{font-size:13px;color:rgba(148,163,184,0.4);line-height:1.5}
+.oarr{color:rgba(148,163,184,0.12);font-size:20px;flex-shrink:0}
+
+/* ═══════════════════════════
+   SLIDE 11 — DEMO
+   ═══════════════════════════ */
+.s11{align-items:center;justify-content:center;text-align:center;padding:60px}
+.demo-btn{
+    display:inline-flex;align-items:center;gap:10px;
+    padding:16px 32px;border-radius:100px;
+    border:1px solid rgba(251,191,36,0.2);
+    background:rgba(251,191,36,0.04);
+    color:#fbbf24;font-size:18px;font-weight:600;
+    text-decoration:none;font-family:inherit;cursor:pointer;
+    transition:all .3s ease;letter-spacing:-.2px;
+}
+.demo-btn:hover{
+    border-color:rgba(251,191,36,0.4);
+    background:rgba(251,191,36,0.08);
+    box-shadow:0 0 30px rgba(251,191,36,0.12);
+    transform:translateY(-2px);
+}
+.demo-btn svg{width:18px;height:18px}
+.demo-frame{
+    width:640px;max-width:85vw;height:340px;
+    border:1px solid rgba(148,163,184,0.06);border-radius:16px;
+    background:rgba(255,255,255,0.01);
+    display:flex;align-items:center;justify-content:center;margin-top:24px;
+}
+.demo-frame span{font-size:13px;color:rgba(148,163,184,0.2);letter-spacing:2px;text-transform:uppercase;font-weight:500}
+
+/* ═══════════════════════════
+   SLIDE 12 — THANK YOU
+   ═══════════════════════════ */
+.s12{align-items:center;justify-content:center;text-align:center;padding:60px}
+.gh{
+    padding:28px 36px;border-radius:16px;max-width:600px;width:100%;
+    border:1px solid rgba(148,163,184,0.06);
+    background:rgba(255,255,255,0.015);
+    display:flex;align-items:center;justify-content:center;gap:12px;
+    transition:all .3s ease;text-decoration:none;color:#fff;
+}
+.gh:hover{border-color:rgba(251,191,36,0.15);transform:translateY(-2px)}
+.gh svg{width:24px;height:24px;opacity:.5}
+.gh span{font-size:18px;font-weight:500;color:rgba(251,191,36,0.6);letter-spacing:-.2px}
+.res-row{display:flex;gap:8px;margin-top:20px}
+.rcard{
+    padding:16px 24px;border-radius:12px;
+    border:1px solid rgba(148,163,184,0.04);
+    background:rgba(255,255,255,0.01);
+    font-size:14px;font-weight:500;color:rgba(148,163,184,0.35);
+    transition:all .2s ease;cursor:pointer;text-decoration:none;
+}
+.rcard:hover{border-color:rgba(148,163,184,0.1);color:rgba(148,163,184,0.6)}
+
+/* ═══════════════
+   BULLET
+   ═══════════════ */
+.bul{
+    font-size:20px;color:rgba(148,163,184,0.5);
+    line-height:1.55;padding-left:20px;position:relative;margin-bottom:14px;
+}
+.bul::before{content:'';position:absolute;left:0;top:10px;width:4px;height:4px;border-radius:50%;background:rgba(251,191,36,0.4)}
+.bul.w::before{background:rgba(251,146,60,0.5)}
+.bul strong{color:rgba(255,255,255,0.75);font-weight:600}
+
+/* ═══════════════
+   SOURCES
+   ═══════════════ */
+.sources{
+    position:absolute;inset:0;overflow-y:auto;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:60px 80px;
+}
+.sources h3{font-size:18px;font-weight:700;letter-spacing:-.3px;margin-bottom:16px;color:rgba(148,163,184,0.4)}
+.sources p{font-size:11px;color:rgba(148,163,184,0.25);line-height:1.7;max-width:800px}
+
+/* ═══════════════
+   RESPONSIVE
+   ═══════════════ */
+@media(max-width:1100px){
+    .pillars{grid-template-columns:1fr}
+    .pill{border-right:none;border-bottom:1px solid rgba(148,163,184,0.06);padding:28px 20px}
+    .plug-grid{grid-template-columns:1fr 1fr}
+    .timeline{flex-wrap:wrap;gap:12px}.tline{display:none}
+    .why-grid{grid-template-columns:1fr}
+}
+@media(max-width:768px){
+    .s1 .zero{display:none}
+    .plug-grid{grid-template-columns:1fr}
+    .why-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- Aurora (from client app) -->
+<div class="aurora">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+    <div class="blob b3"></div>
+</div>
+
+<!-- Ambient WebGL shader canvas -->
+<canvas id="ambientCanvas"></canvas>
+
+<div class="prog" id="prog"></div>
+
+<div class="deck">
+
+<!-- ═══ SLIDE 0 — HERO ═══ -->
+<div class="slide s0 active">
+    <div class="brand glow fin d1" style="font-size:clamp(72px,12vw,160px)">Xylkstream</div>
+    <p class="tagline fin d2">Send money that grows while it travels</p>
+    <p class="info fin d3">Pay friends, family, or your team over time — while every dollar earns rewards automatically on BNB Chain</p>
+    <p class="badge fin d4">BNB Chain Hackathon 2026</p>
+</div>
+
+<!-- ═══ SLIDE 1 — THE PROBLEM ═══ -->
+<div class="slide s1">
+    <div class="zero"><span>0%</span></div>
+    <div style="padding:60px 80px;display:flex;flex-direction:column;height:100%;position:relative;z-index:2">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,146,60,0.5);margin-bottom:12px">The Problem</p>
+        <h2 class="headline fin d2" style="font-size:clamp(36px,5vw,56px);max-width:700px;margin-bottom:32px">300M+ people send money to each other. It earns <span class="warm">nothing</span> in transit.</h2>
+        <div class="stat-row fin d3" style="margin-bottom:28px">
+            <div class="stat-block">
+                <div class="bigstat amber" style="font-size:clamp(40px,6vw,72px)">$1T</div>
+                <div class="stat-label">sent via Zelle in 2024 alone (+27% YoY)</div>
+            </div>
+            <div class="stat-block">
+                <div class="bigstat rose" style="font-size:clamp(40px,6vw,72px)">0%</div>
+                <div class="stat-label">earned while that money was in transit</div>
+            </div>
+        </div>
+        <div class="fin d4">
+            <div class="bul">Recurring payments sit idle — money in transit earns <strong>nothing</strong> while it waits</div>
+            <div class="bul">Group treasuries earn <strong>zero rewards</strong> while slowly paying out</div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 2 — THE BIGGER PROBLEM ═══ -->
+<div class="slide s2">
+    <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,146,60,0.4);margin-bottom:24px">The Bigger Problem</p>
+    <p class="quote fin d2">"Research proves: streaming beats lump sums."</p>
+    <div class="fin d3" style="display:flex;gap:40px;align-items:flex-start;max-width:700px;text-align:left">
+        <div style="flex:1;padding:20px 24px;border:1px solid rgba(251,191,36,0.1);border-radius:12px;background:rgba(251,191,36,0.02)">
+            <div style="font-size:36px;font-weight:900;letter-spacing:-2px;color:#fbbf24;margin-bottom:4px">$22.50/mo</div>
+            <div style="font-size:14px;color:rgba(148,163,184,0.5);line-height:1.5">Monthly recipients reported <strong style="color:rgba(255,255,255,0.7)">better mental health, happiness & food diversity</strong></div>
+        </div>
+        <div style="flex:1;padding:20px 24px;border:1px solid rgba(148,163,184,0.06);border-radius:12px;background:rgba(255,255,255,0.01)">
+            <div style="font-size:36px;font-weight:900;letter-spacing:-2px;color:rgba(148,163,184,0.25);margin-bottom:4px">$500 once</div>
+            <div style="font-size:14px;color:rgba(148,163,184,0.35);line-height:1.5">Lump sum recipients invested more but had <strong style="color:rgba(148,163,184,0.5)">lower wellbeing scores</strong></div>
+        </div>
+    </div>
+    <p class="fin d4" style="font-size:13px;color:rgba(148,163,184,0.3);margin-top:20px;max-width:600px">GiveDirectly Kenya study (Banerjee et al. 2023) — streaming payments create stability, not just wealth</p>
+</div>
+
+<!-- ═══ SLIDE 3 — ENTER XYLKSTREAM ═══ -->
+<div class="slide s3">
+    <div style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+        <p class="kicker fin d1">The Solution</p>
+        <h2 class="headline fin d2" style="font-size:clamp(36px,5vw,52px);max-width:800px;margin-bottom:8px">Xylkstream makes every payment earn rewards — <span class="accent-grad">automatically.</span></h2>
+        <div style="display:flex;gap:48px;flex:1;align-items:center;margin-top:20px">
+            <div style="flex:1">
+                <p class="sub fin d2" style="font-size:22px;color:#fbbf24;margin-bottom:20px;font-weight:500">Smart agents put your money to work while it's on the way.</p>
+                <p class="sub fin d3" style="font-size:18px;margin-bottom:12px">Every payment becomes a rewards opportunity. Money flows through optimized strategies in real-time, with full human oversight.</p>
+                <div class="fin d4" style="display:flex;gap:16px;align-items:center;margin-bottom:16px;padding:12px 16px;border:1px solid rgba(251,191,36,0.1);border-radius:10px;background:rgba(251,191,36,0.02)">
+                    <span style="font-size:28px;font-weight:900;letter-spacing:-1px;color:#fbbf24">$46T</span>
+                    <span style="font-size:14px;color:rgba(148,163,184,0.5);line-height:1.4">in stablecoin volume this year — 3x Visa. Sub-second settlement. The infrastructure is ready.</span>
+                </div>
+                <div class="chip-row fin d5">
+                    <span class="chip">Auto-Compound</span>
+                    <span class="chip">Risk Scoring</span>
+                    <span class="chip">Rebalancing</span>
+                    <span class="chip v">Audit Trail</span>
+                    <span class="chip v">Kill Switches</span>
+                </div>
+            </div>
+            <div class="fin d3" style="flex:1;display:flex;align-items:center;justify-content:center">
+                <div style="text-align:center">
+                    <div class="brand" style="font-size:72px;margin-bottom:8px">Xylkstream</div>
+                    <p style="font-size:14px;color:rgba(148,163,184,0.3)">your money works while it travels</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE — OPENCLAW PARTNERSHIP ═══ -->
+<div class="slide" style="align-items:center;justify-content:center;text-align:center;padding:60px">
+    <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,77,77,0.5);margin-bottom:20px">Powered By</p>
+    <div class="fin d2" style="display:flex;align-items:center;justify-content:center;gap:24px;flex-wrap:wrap;margin-bottom:16px">
+        <span class="openclaw-title"><svg class="openclaw-claw" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M60 10 C30 10 15 35 15 55 C15 75 30 95 45 100 L45 110 L55 110 L55 100 C55 100 60 102 65 100 L65 110 L75 110 L75 100 C90 95 105 75 105 55 C105 35 90 10 60 10Z" fill="url(#oc-g)"/><path d="M20 45 C5 40 0 50 5 60 C10 70 20 65 25 55 C28 48 25 45 20 45Z" fill="url(#oc-g)"/><path d="M100 45 C115 40 120 50 115 60 C110 70 100 65 95 55 C92 48 95 45 100 45Z" fill="url(#oc-g)"/><path d="M45 15 Q35 5 30 8" stroke="#ff4d4d" stroke-width="2" stroke-linecap="round"/><path d="M75 15 Q85 5 90 8" stroke="#ff4d4d" stroke-width="2" stroke-linecap="round"/><circle cx="45" cy="35" r="6" fill="#0c0a09"/><circle cx="75" cy="35" r="6" fill="#0c0a09"/><circle cx="46" cy="34" r="2" fill="#ff4d4d"/><circle cx="76" cy="34" r="2" fill="#ff4d4d"/><defs><linearGradient id="oc-g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff4d4d"/><stop offset="100%" stop-color="#991b1b"/></linearGradient></defs></svg>OpenClaw</span>
+        <span class="openclaw-heart">&hearts;</span>
+        <span class="brand" style="font-size:clamp(48px,7vw,80px)">Xylkstream</span>
+    </div>
+    <p class="sub fin d3" style="font-size:22px;max-width:650px;margin-bottom:24px">The AI that manages your money — so you don't have to.</p>
+    <div class="openclaw-flow fin d4">
+        <div class="openclaw-node">
+            <h4 style="color:#ff4d4d">OpenClaw Bot</h4>
+            <p>AI monitors markets 24/7, picks optimal strategies</p>
+        </div>
+        <div class="openclaw-arrow">&rarr;</div>
+        <div class="openclaw-node">
+            <h4 style="color:#fbbf24">Xylkstream</h4>
+            <p>Deploys capital, rebalances, compounds rewards</p>
+        </div>
+        <div class="openclaw-arrow">&rarr;</div>
+        <div class="openclaw-node">
+            <h4 style="color:#00e5cc">You</h4>
+            <p>Set it and forget it — collect payments + rewards</p>
+        </div>
+    </div>
+    <div class="fin d5" style="text-align:left;margin-top:8px;white-space:nowrap">
+        <div class="bul">OpenClaw <strong>autonomously selects</strong> the best yield strategy for each payment</div>
+        <div class="bul">Full <strong>audit trail</strong> — every AI decision logged and human-overridable</div>
+        <div class="bul">Owners keep <strong>kill-switch control</strong> — AI proposes, humans approve</div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 4 — WHY NOW ═══ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;flex-direction:column;height:100%">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.4);margin-bottom:10px">Timing</p>
+        <h2 class="headline fin d2" style="font-size:44px;margin-bottom:24px">Why Now?</h2>
+        <div class="why-grid fin d3">
+            <div class="why-card">
+                <div class="wn a">$46T</div>
+                <h4>Stablecoins hit escape velocity</h4>
+                <p>3x Visa's annual volume. Sub-cent fees. Sub-second settlement. The rails are here. (a16z State of Crypto 2025)</p>
+            </div>
+            <div class="why-card">
+                <div class="wn r">300M+</div>
+                <h4>P2P users in US alone</h4>
+                <p>Zelle: 151M accounts. Venmo: 107.6M users. People already send billions to friends and family every month.</p>
+            </div>
+            <div class="why-card">
+                <div class="wn v">+11.5%</div>
+                <h4>Income rise with on-demand pay</h4>
+                <p>Workers with earned wage access saw $334/mo more income. Streaming pay works. (Davis 2025)</p>
+            </div>
+            <div class="why-card">
+                <div class="wn o">2/3</div>
+                <h4>of adults pay digitally worldwide</h4>
+                <p>Digital payments in developing economies: 35% to 57% in 7 years. Friend-group savings (ROSCAs) thrive everywhere. (World Bank Findex 2021)</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 5 — THE MARKET ═══ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <div style="display:flex;flex-direction:column;height:100%">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.4);margin-bottom:10px">Market Opportunity</p>
+        <h2 class="headline fin d2" style="font-size:44px;margin-bottom:32px">A slice of a <span class="accent">$2.4 trillion</span> market</h2>
+        <div style="display:flex;gap:48px;flex:1;align-items:center" class="fin d3">
+            <div style="flex:1">
+                <div class="bigstat amber" style="margin-bottom:8px">$2.4T</div>
+                <div style="font-size:18px;color:rgba(148,163,184,0.5);margin-bottom:28px;line-height:1.5">Global payments revenue (McKinsey 2025). Account-to-account payments gaining share fast.</div>
+                <div style="display:flex;gap:24px">
+                    <div>
+                        <div style="font-size:32px;font-weight:900;letter-spacing:-2px;color:#fb7185">~30%</div>
+                        <div style="font-size:13px;color:rgba(148,163,184,0.4)">Global POS via digital wallets</div>
+                    </div>
+                    <div>
+                        <div style="font-size:32px;font-weight:900;letter-spacing:-2px;color:#a78bfa">194K</div>
+                        <div style="font-size:13px;color:rgba(148,163,184,0.4)">Kenyan households lifted from poverty by M-PESA peer transfers</div>
+                    </div>
+                </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:16px">
+                <div class="bul"><strong>46%</strong> of Venmo users would give up income to receive payment via Venmo instead of cash — social trust drives adoption (Acker & Murthy 2020)</div>
+                <div class="bul">Streaming payments create <strong>maximum "decoupling"</strong> — reducing the psychological pain of paying (Prelec & Loewenstein 1998)</div>
+                <div class="bul">Friend-group savings pools (ROSCAs) persist <strong>even where banks exist</strong> — social obligation enforces commitment (Besley et al. 1993, AER)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 6 — THREE PILLARS ═══ -->
+<div class="slide s4">
+    <div style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.4);margin-bottom:10px">Core Architecture</p>
+        <h2 class="headline fin d2" style="font-size:44px;margin-bottom:32px">Three Pillars</h2>
+        <div class="pillars fin d3">
+            <div class="pill">
+                <div class="num">01</div>
+                <h3 class="c1">Payments</h3>
+                <p>Continuous <strong>money flows</strong> — allowances, payroll, group funds as programmable payment streams</p>
+            </div>
+            <div class="pill v">
+                <div class="num">02</div>
+                <h3 class="v1">Smart Rewards</h3>
+                <p><strong>Automatic optimization</strong> — earn rewards, rebalance on drift, score every strategy for safety</p>
+            </div>
+            <div class="pill i">
+                <div class="num">03</div>
+                <h3 class="i1">Flexible Strategies</h3>
+                <p><strong>Swap anytime</strong> — PancakeSwap V3 LP, lending protocols, yield strategies on BSC</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 7 — PLUGIN SYSTEM ═══ -->
+<div class="slide s5">
+    <div style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.4);margin-bottom:10px">Plugin System</p>
+        <h2 class="headline fin d2" style="font-size:44px;margin-bottom:4px">Flexible strategies you can swap anytime</h2>
+        <p class="sub fin d2" style="font-size:20px;margin-bottom:32px">The future only gets <span class="accent">better</span></p>
+        <div class="plug-grid fin d3">
+            <div class="plug live"><h4>PancakeSwap V3</h4><p>Concentrated liquidity on BSC's top DEX. Auto-rebalance positions.</p><div class="st live">&#x25CF; Live — Plugin #1</div></div>
+            <div class="plug"><h4>Venus Protocol</h4><p>Lending & borrowing yield on BSC.</p><div class="st plan">&#x25CF; Planned</div></div>
+            <div class="plug"><h4>Alpaca Finance</h4><p>Leveraged yield farming strategies.</p><div class="st plan">&#x25CF; Planned</div></div>
+            <div class="plug"><h4>Community</h4><p>Anyone can build and submit strategies.</p><div class="st open">&#x25CF; Open</div></div>
+        </div>
+        <div class="fin d4" style="margin-top:8px">
+            <div class="narr">Fund managers install plugins — <strong>no contract redeployment</strong></div>
+            <div class="narr">Community builds better strategies — protocol gets <strong>smarter over time</strong></div>
+            <div class="narr">Like swapping apps on your phone — <strong>change strategies without downtime</strong></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 8 — HOW IT WORKS ═══ -->
+<div class="slide s6">
+    <div style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.4);margin-bottom:10px">Execution Flow</p>
+        <h2 class="headline fin d2" style="font-size:44px;margin-bottom:64px">How It Works</h2>
+        <div class="timeline fin d3">
+            <div class="tstep"><div class="tn">1</div><div class="tt">Send a <strong>payment</strong></div></div>
+            <div class="tline"></div>
+            <div class="tstep"><div class="tn">2</div><div class="tt"><strong>Idle money</strong> detected</div></div>
+            <div class="tline"></div>
+            <div class="tstep hl"><div class="tn">3</div><div class="tt">Smart agent picks <strong>best strategy</strong></div></div>
+            <div class="tline"></div>
+            <div class="tstep hl"><div class="tn">4</div><div class="tt"><strong>Strategy</strong> activated</div></div>
+            <div class="tline"></div>
+            <div class="tstep"><div class="tn">5</div><div class="tt">Money starts <strong>earning</strong></div></div>
+            <div class="tline"></div>
+            <div class="tstep"><div class="tn">6</div><div class="tt">Rewards <strong>accumulate</strong></div></div>
+            <div class="tline"></div>
+            <div class="tstep end"><div class="tn">7</div><div class="tt">Claim <strong>payment + rewards</strong></div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ SLIDE 9 — ARCHITECTURE ═══ -->
+<div class="slide s7">
+    <div style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+        <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.4);margin-bottom:10px">Smart Contracts</p>
+        <h2 class="headline fin d2" style="font-size:44px;margin-bottom:12px">Diamond Architecture</h2>
+        <div class="arch fin d3">
+            <div class="ar"><div class="ab p">DripsRouter</div></div>
+            <div class="adown">&darr;</div>
+            <div class="ar"><div class="ab s">FacetA: Streams</div><span style="color:rgba(148,163,184,0.1);padding:0 4px">+</span><div class="ab s">FacetB: Splits</div></div>
+            <div class="adown">&darr;</div>
+            <div class="ar"><div class="ab p">YieldManager</div></div>
+            <div class="adown">&darr; IYieldStrategy</div>
+            <div class="ar">
+                <div class="ab st">PancakeSwap V3</div>
+                <div class="ab sl">+ Venus</div>
+                <div class="ab sl">+ Alpaca</div>
+                <div class="ab sl">+ ...</div>
+            </div>
+            <p class="anote"><strong>17.6KB</strong> contract across <strong>2 facets</strong> — diamond-pattern proxy on BSC. Any plugin implements <strong>IYieldStrategy</strong>.</p>
+        </div>
+    </div>
+</div>
+
+
+<!-- ═══ SLIDE 11 — DEMO ═══ -->
+<div class="slide s11">
+    <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.3);margin-bottom:16px">Live Demo</p>
+    <h2 class="headline fin d2" style="font-size:48px;margin-bottom:24px">See it in action</h2>
+    <a class="demo-btn fin d3" href="#" target="_blank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Launch Demo
+    </a>
+    <div class="demo-frame fin d4"><span>Demo Screencast</span></div>
+</div>
+
+<!-- ═══ SLIDE 12 — THANK YOU ═══ -->
+<div class="slide s12">
+    <div class="brand glow fin d1" style="font-size:clamp(60px,10vw,120px);margin-bottom:12px">Xylkstream</div>
+    <p class="fin d2" style="font-size:20px;color:rgba(191,219,254,0.35);font-weight:300;margin-bottom:32px">The way friends and family move money</p>
+    <a class="gh fin d3" href="#">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.17 6.839 9.49.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.167 22 16.418 22 12c0-5.523-4.477-10-10-10z"/></svg>
+        <span>github.com/xylkstream</span>
+    </a>
+    <div class="res-row fin d4">
+        <a class="rcard" href="#">Docs</a>
+        <a class="rcard" href="#">Architecture</a>
+        <a class="rcard" href="#">API Reference</a>
+    </div>
+    <p class="fin d5" style="margin-top:24px;font-size:13px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.2)">BNB Chain Hackathon 2026</p>
+</div>
+
+<!-- ═══ SLIDE 13 — SOURCES ═══ -->
+<div class="slide">
+    <div class="sources">
+        <h3 class="fin d1">Sources</h3>
+        <p class="fin d2">
+            [1] Zelle Network. (2025). Zelle processed $1 trillion in 2024, +27% YoY across 151M accounts.<br>
+            [2] PayPal/Venmo. (2025). Venmo reaches 107.6M active users.<br>
+            [3] World Bank. (2021). Global Findex Database — digital payments in developing economies grew 35% to 57% (2014-2021).<br>
+            [4] a16z Crypto. (2025). State of Crypto 2025 — $46T stablecoin transaction volume, +106% YoY, ~3x Visa.<br>
+            [5] Banerjee, A. et al. (2023). "Long-Term Effects of the Targeting the Ultra Poor Program." GiveDirectly Kenya — $22.50/mo vs $500 lump sum.<br>
+            [6] Davis, O. (2025). "Earned Wage Access and Worker Outcomes." Monthly income rose $334 (+11.5%) among EWA adopters.<br>
+            [7] Acker, A. & Murthy, D. (2020). "Venmo: Understanding mobile payments as social media." 46% of users prefer Venmo over cash.<br>
+            [8] Besley, T., Coate, S. & Loury, G. (1993). "The Economics of Rotating Savings and Credit Associations." American Economic Review.<br>
+            [9] Dagnelie, O. & LeMay-Boucher, P. (2023). ROSCAs and social obligation in developing economies.<br>
+            [10] Suri, T. & Jack, W. (2016). "The long-run poverty and gender impacts of mobile money." Science. M-PESA lifted 194K Kenyan households from poverty.<br>
+            [11] Prelec, D. & Loewenstein, G. (1998). "The Red and the Black: Mental Accounting of Savings and Debt." Continuous small flows reduce pain of paying.<br>
+            [12] McKinsey & Company. (2025). Global Payments Report — $2.4T global payments revenue. Digital wallets ~30% of POS volume.
+        </p>
+    </div>
+</div>
+
+</div>
+
+<!-- Page Info -->
+<div class="page-info">
+    <span>XYLKSTREAM</span>
+    <span class="n" id="pageNum">00</span>
+</div>
+
+<!-- Nav -->
+<div class="nav">
+    <button id="prev">&larr;</button>
+    <button id="next">&rarr;</button>
+</div>
+
+<script>
+(() => {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const total = slides.length;
+    let cur = 0;
+    const prog = document.getElementById('prog');
+    const pageNum = document.getElementById('pageNum');
+
+    function go(n) {
+        if (n < 0 || n >= total) return;
+        slides[cur].classList.remove('active');
+        cur = n;
+        slides[cur].classList.add('active');
+        prog.style.width = ((cur / (total - 1)) * 100) + '%';
+        pageNum.textContent = String(cur).padStart(2, '0');
+        // Shader active on solution slides (from slide 3 onward)
+        const c = document.getElementById('ambientCanvas');
+        if (cur >= 3) c.classList.add('on');
+        else c.classList.remove('on');
+    }
+    document.getElementById('prev').addEventListener('click', () => go(cur - 1));
+    document.getElementById('next').addEventListener('click', () => go(cur + 1));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(cur - 1); }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+    });
+
+    // ── WebGL ambient shader (adapted from charging.html) ──
+    const canvas = document.getElementById('ambientCanvas');
+    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (gl) {
+        const vs = `attribute vec2 a;void main(){gl_Position=vec4(a,0,1);}`;
+        const fs = `
+            precision mediump float;
+            uniform float uTime;
+            uniform vec2 uRes;
+            float noise(vec2 p){return fract(sin(dot(p,vec2(12.9898,78.233)))*43758.5453);}
+            float sn(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.-2.*f);return mix(mix(noise(i),noise(i+vec2(1,0)),f.x),mix(noise(i+vec2(0,1)),noise(i+vec2(1,1)),f.x),f.y);}
+            float fbm(vec2 p){float v=0.;float a=.5;for(int i=0;i<4;i++){v+=a*sn(p);p*=2.;a*=.5;}return v;}
+            void main(){
+                vec2 uv=gl_FragCoord.xy/uRes;
+                float t=uTime;
+                vec2 p=uv*vec2(4.,3.);
+                float w1=sin(uv.x*8.-t*2.+fbm(p+t*.4)*3.)*.5+.5;
+                float w2=sin(uv.y*6.-t*1.5+uv.x*3.)*.5+.5;
+                float w3=fbm(p*1.5+vec2(-t*1.5,sin(t*.2)));
+                float e=w1*.3+w2*.25+w3*.4;
+                e=pow(e,2.);
+                float pulse=sin(t*1.5)*.08+.92;
+                e*=pulse;
+                // Vignette
+                float vig=1.-length((uv-.5)*vec2(1.6,2.));
+                vig=smoothstep(0.,.6,vig);
+                e*=vig*.15;
+                vec3 c1=vec3(.98,.75,.14);// amber
+                vec3 c2=vec3(.96,.25,.37);// rose
+                vec3 col=mix(c1,c2,uv.y+sin(t*.3)*.15)*e;
+                col+=vec3(1.)*pow(e,3.)*.2;
+                gl_FragColor=vec4(col,e*.6);
+            }
+        `;
+        function compile(t,s){const sh=gl.createShader(t);gl.shaderSource(sh,s);gl.compileShader(sh);return sh;}
+        const p=gl.createProgram();
+        gl.attachShader(p,compile(gl.VERTEX_SHADER,vs));
+        gl.attachShader(p,compile(gl.FRAGMENT_SHADER,fs));
+        gl.linkProgram(p);gl.useProgram(p);
+        const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);
+        gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,1,1]),gl.STATIC_DRAW);
+        const a=gl.getAttribLocation(p,'a');gl.enableVertexAttribArray(a);gl.vertexAttribPointer(a,2,gl.FLOAT,false,0,0);
+        const uT=gl.getUniformLocation(p,'uTime');
+        const uR=gl.getUniformLocation(p,'uRes');
+        gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE);
+
+        let lw=0,lh=0;
+        function resize(){
+            const dpr=Math.min(window.devicePixelRatio||1,2);
+            const w=window.innerWidth*dpr,h=window.innerHeight*dpr;
+            if(w!==lw||h!==lh){canvas.width=w;canvas.height=h;gl.viewport(0,0,w,h);lw=w;lh=h;}
+        }
+        const t0=performance.now();
+        function tick(){
+            if(canvas.classList.contains('on')){
+                resize();
+                const t=(performance.now()-t0)/1000;
+                gl.uniform1f(uT,t);gl.uniform2f(uR,canvas.width,canvas.height);
+                gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT);
+                gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+            }
+            requestAnimationFrame(tick);
+        }
+        resize();tick();
+        window.addEventListener('resize',resize);
+    }
+})();
+</script>
+</body>
+</html>
