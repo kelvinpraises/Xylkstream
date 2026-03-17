@@ -3,6 +3,8 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Sparkles, Loader2, Shield, Radio, StopCircle, Clock, Download, Copy, Check, Monitor, Cloud } from "lucide-react";
 import { usePrivy } from "@privy-io/react-auth";
 import { toast } from "sonner";
+import { config } from "@/config";
+const API_URL = config.API_URL;
 
 type AgentProvider = "eigencompute" | "local";
 
@@ -20,7 +22,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/select";
+} from "@/components/atoms/select";
 
 export const Route = createFileRoute("/studio")({
   component: StudioPage,
@@ -51,19 +53,19 @@ function StudioPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [provider, setProvider] = useState<AgentProvider>("eigencompute");
   const [agentSession, setAgentSession] = useState<(LaunchResult & { status: string }) | null>(null);
-  const [isLaunching, setIsLaunching] = useState(false);
-  const [verifiableLogs, setVerifiableLogs] = useState<{
+  const [isLaunching] = useState(false);
+  const [verifiableLogs] = useState<{
     logContent: string | null;
     logHash: string | null;
   } | null>(null);
-  const [sessionTimer, setSessionTimer] = useState(0);
+  const [sessionTimer] = useState(0);
   const sessionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   // Local provider stepper state
   const [localStep, setLocalStep] = useState(0);
   const [copied, setCopied] = useState<string | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDownloading] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
   const scrollToBottom = useCallback(() => {
@@ -218,11 +220,11 @@ function StudioPage() {
 
     try {
       wsRef.current.send(JSON.stringify({ content: userText }));
-    } catch (err: any) {
+    } catch (err) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: `Failed to send message: ${err.message || "Connection error"}. Try again.`,
+        content: `Failed to send message: ${err instanceof Error ? err.message : "Connection error"}. Try again.`,
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);

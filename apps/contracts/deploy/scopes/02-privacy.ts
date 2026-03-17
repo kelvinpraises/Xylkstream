@@ -11,31 +11,31 @@ export async function deployPrivacy(
 
   // 1. PoseidonT3 library (linked into ZWERC20 bytecode)
   const poseidonT3 = await deployFromArtifact(
-    walletClient,
-    client,
-    "out/PoseidonT3.sol/PoseidonT3.json"
+    walletClient, client,
+    "out/PoseidonT3.sol/PoseidonT3.json",
+    undefined, undefined, "xylkstream.poseidonT3"
   );
 
   // 2. Groth16Verifier
   const groth16Verifier = await deployFromArtifact(
-    walletClient,
-    client,
-    "out/Groth16Verifier.sol/Groth16Verifier.json"
+    walletClient, client,
+    "out/Groth16Verifier.sol/Groth16Verifier.json",
+    undefined, undefined, "xylkstream.groth16Verifier"
   );
 
   // 3. Mock tokens (testnet only)
   const mockUSDC = await deployFromArtifact(
-    walletClient,
-    client,
+    walletClient, client,
     "out/MockERC20.sol/MockERC20.json",
-    ["Test USDC", "tUSDC", 18]
+    ["Test USDC", "tUSDC", 18],
+    undefined, "xylkstream.mockUSDC"
   );
 
   const mockUSDT = await deployFromArtifact(
-    walletClient,
-    client,
+    walletClient, client,
     "out/MockERC20.sol/MockERC20.json",
-    ["Test USDT", "tUSDT", 18]
+    ["Test USDT", "tUSDT", 18],
+    undefined, "xylkstream.mockUSDT"
   );
 
   // 4. ZwConfig struct (matches BaseZWToken.ZwConfig in Deploy.s.sol)
@@ -58,20 +58,18 @@ export async function deployPrivacy(
 
   // 5. ZWERC20 wrapping USDC
   const zwUSDC = await deployFromArtifact(
-    walletClient,
-    client,
+    walletClient, client,
     "out/ZWERC20.sol/ZWERC20.json",
     ["ZW Test USDC", "zwUSDC", 18, mockUSDC, zwConfig],
-    libraries
+    libraries, "xylkstream.zwUSDC"
   );
 
   // 6. ZWERC20 wrapping USDT
   const zwUSDT = await deployFromArtifact(
-    walletClient,
-    client,
+    walletClient, client,
     "out/ZWERC20.sol/ZWERC20.json",
     ["ZW Test USDT", "zwUSDT", 18, mockUSDT, zwConfig],
-    libraries
+    libraries, "xylkstream.zwUSDT"
   );
 
   return {

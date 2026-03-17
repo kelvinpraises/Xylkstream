@@ -15,9 +15,9 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { usePrivy } from "@privy-io/react-auth";
-import { useLogout } from "@/hooks";
+import { useLogout } from "@/hooks/use-logout";
 import { truncateAddress } from "@/utils";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { useTheme } from "@/providers/theme-provider";
 import { toast } from "sonner";
 import {
@@ -32,7 +32,7 @@ import {
   SidebarMenuItem,
   SidebarRail,
   useSidebar,
-} from "@/components/sidebar";
+} from "@/components/organisms/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,8 +42,9 @@ import {
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
-} from "@/components/dropdown-menu";
+} from "@/components/molecules/dropdown-menu";
 import { cn } from "@/utils";
+import { useChain } from "@/providers/chain-provider";
 
 const navData = {
   platform: [
@@ -86,12 +87,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { isMobile } = useSidebar();
   const { mutate: logout } = useLogout();
   const { setTheme, theme } = useTheme();
+  const { chainConfig } = useChain();
 
   const walletAddress = user?.wallet?.address;
   const formattedBalance = "—";
 
   const userData = {
-    name: truncateAddress(walletAddress),
+    name: truncateAddress(walletAddress ?? ""),
     email: "Signed In",
     avatar: `https://avatar.vercel.sh/${walletAddress || "user"}`,
   };
@@ -187,7 +189,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <Copy className="mr-2 h-4 w-4" />
                   Copy Address
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open("https://testnet.bnbchain.org/faucet-smart", "_blank")}>
+                <DropdownMenuItem onClick={() => {
+                  const faucetUrl = chainConfig.chain.blockExplorers?.default?.url;
+                  if (faucetUrl) window.open(faucetUrl, "_blank");
+                }}>
                   <ExternalLink className="mr-2 h-4 w-4" />
                   Get Testnet BNB
                 </DropdownMenuItem>

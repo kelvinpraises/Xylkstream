@@ -30,17 +30,16 @@ import { privateKeyToAccount } from "viem/accounts";
 import { anvil } from "viem/chains";
 
 import WalletManagerEvmErc4337 from "@xylkstream/wdk-4337";
-import type { WalletAccountEvmErc4337 } from "@xylkstream/wdk-4337";
 
 import {
-  ADDRESS_DRIVER_ABI,
-  DRIPS_ABI,
-  ERC20_ABI,
+  addressDriverAbi,
+  iDripsAbi,
+  erc20Abi,
   AMT_PER_SEC_MULTIPLIER,
   calcAmtPerSec,
   calcAccountId,
   packStreamConfig,
-} from "../src/lib/drips.js";
+} from "../src/utils/streams.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              CONFIGURATION
@@ -72,7 +71,7 @@ const PAYMASTER_URL = "http://localhost:4848/paymaster/localhost";
 const DERIVATION_PATH = "0'/0/0";
 
 const MOCK_ERC20_ABI = [
-  ...ERC20_ABI,
+  ...erc20Abi,
   {
     type: "function",
     name: "mint",
@@ -281,7 +280,7 @@ async function main() {
 
   const driverIdRaw = await publicClient.readContract({
     address: ADDRESSES.addressDriver,
-    abi: ADDRESS_DRIVER_ABI,
+    abi: addressDriverAbi,
     functionName: "DRIVER_ID",
   });
   const driverId = BigInt(driverIdRaw as number | bigint);
@@ -349,7 +348,7 @@ async function main() {
   const setStreamsTxResult = await aliceAccount.sendTransaction({
     to: ADDRESSES.addressDriver,
     data: encodeFunctionData({
-      abi: ADDRESS_DRIVER_ABI,
+      abi: addressDriverAbi,
       functionName: "setStreams",
       args: [
         ADDRESSES.mockUSDC,
@@ -386,7 +385,7 @@ async function main() {
     account: deployerWallet.account!,
     chain: anvil,
     address: ADDRESSES.dripsProxy,
-    abi: DRIPS_ABI,
+    abi: iDripsAbi,
     functionName: "receiveStreams",
     args: [bobAccountId, ADDRESSES.mockUSDC, 1000],
   });
@@ -396,7 +395,7 @@ async function main() {
 
   const splittable = await publicClient.readContract({
     address: ADDRESSES.dripsProxy,
-    abi: DRIPS_ABI,
+    abi: iDripsAbi,
     functionName: "splittable",
     args: [bobAccountId, ADDRESSES.mockUSDC],
   }) as bigint;
@@ -410,7 +409,7 @@ async function main() {
     account: deployerWallet.account!,
     chain: anvil,
     address: ADDRESSES.dripsProxy,
-    abi: DRIPS_ABI,
+    abi: iDripsAbi,
     functionName: "split",
     args: [bobAccountId, ADDRESSES.mockUSDC, []],
   });
@@ -420,7 +419,7 @@ async function main() {
 
   const collectable = await publicClient.readContract({
     address: ADDRESSES.dripsProxy,
-    abi: DRIPS_ABI,
+    abi: iDripsAbi,
     functionName: "collectable",
     args: [bobAccountId, ADDRESSES.mockUSDC],
   }) as bigint;
@@ -441,7 +440,7 @@ async function main() {
   const collectTxResult = await bobAccount.sendTransaction({
     to: ADDRESSES.addressDriver,
     data: encodeFunctionData({
-      abi: ADDRESS_DRIVER_ABI,
+      abi: addressDriverAbi,
       functionName: "collect",
       args: [ADDRESSES.mockUSDC, bobAddress],
     }),
@@ -481,7 +480,7 @@ async function main() {
   const receiveHash2TxResult = await charlieAccount.sendTransaction({
     to: ADDRESSES.dripsProxy,
     data: encodeFunctionData({
-      abi: DRIPS_ABI,
+      abi: iDripsAbi,
       functionName: "receiveStreams",
       args: [bobAccountId, ADDRESSES.mockUSDC, 1000],
     }),
@@ -492,7 +491,7 @@ async function main() {
 
   const splittable2 = await publicClient.readContract({
     address: ADDRESSES.dripsProxy,
-    abi: DRIPS_ABI,
+    abi: iDripsAbi,
     functionName: "splittable",
     args: [bobAccountId, ADDRESSES.mockUSDC],
   }) as bigint;
@@ -505,7 +504,7 @@ async function main() {
   const splitHash2TxResult = await charlieAccount.sendTransaction({
     to: ADDRESSES.dripsProxy,
     data: encodeFunctionData({
-      abi: DRIPS_ABI,
+      abi: iDripsAbi,
       functionName: "split",
       args: [bobAccountId, ADDRESSES.mockUSDC, []],
     }),
@@ -516,7 +515,7 @@ async function main() {
 
   const collectable2 = await publicClient.readContract({
     address: ADDRESSES.dripsProxy,
-    abi: DRIPS_ABI,
+    abi: iDripsAbi,
     functionName: "collectable",
     args: [bobAccountId, ADDRESSES.mockUSDC],
   }) as bigint;
@@ -537,7 +536,7 @@ async function main() {
   const collectHash2TxResult = await bobAccount.sendTransaction({
     to: ADDRESSES.addressDriver,
     data: encodeFunctionData({
-      abi: ADDRESS_DRIVER_ABI,
+      abi: addressDriverAbi,
       functionName: "collect",
       args: [ADDRESSES.mockUSDC, bobAddress],
     }),

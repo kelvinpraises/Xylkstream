@@ -23,45 +23,42 @@ export async function deployStreaming(
     // 1. DripsFacetA — constructor: (cycleSecs = 10)
     console.log("\n[03-streaming] Deploying DripsFacetA...");
     const facetA = await deployFromArtifact(
-      walletClient,
-      client,
+      walletClient, client,
       "out/DripsFacetA.sol/DripsFacetA.json",
-      [10]
+      [10], undefined, "xylkstream.dripsFacetA"
     );
 
     // 2. DripsFacetB — no constructor args
     console.log("[03-streaming] Deploying DripsFacetB...");
     const facetB = await deployFromArtifact(
-      walletClient,
-      client,
-      "out/DripsFacetB.sol/DripsFacetB.json"
+      walletClient, client,
+      "out/DripsFacetB.sol/DripsFacetB.json",
+      undefined, undefined, "xylkstream.dripsFacetB"
     );
 
     // 3. DripsRouter — constructor: (facetA, facetB, 0, deployer)
     console.log("[03-streaming] Deploying DripsRouter...");
     const router = await deployFromArtifact(
-      walletClient,
-      client,
+      walletClient, client,
       "out/DripsRouter.sol/DripsRouter.json",
-      [facetA, facetB, 0, deployer]
+      [facetA, facetB, 0, deployer], undefined, "xylkstream.dripsRouter"
     );
 
     // 4. ManagedProxy for Drips — constructor: (router, deployer, "")
     console.log("[03-streaming] Deploying ManagedProxy (Drips)...");
     const dripsProxy = await deployFromArtifact(
-      walletClient,
-      client,
+      walletClient, client,
       "out/Managed.sol/ManagedProxy.json",
-      [router, deployer, "0x"]
+      [router, deployer, "0x"], undefined, "xylkstream.dripsProxy"
     );
     console.log(`  dripsProxy → ${dripsProxy}`);
 
     // 5. Caller — no constructor args
     console.log("[03-streaming] Deploying Caller...");
     const caller = await deployFromArtifact(
-      walletClient,
-      client,
-      "out/Caller.sol/Caller.json"
+      walletClient, client,
+      "out/Caller.sol/Caller.json",
+      undefined, undefined, "xylkstream.caller"
     );
 
     // Load IDrips ABI for registerDriver / updateDriverAddress calls
@@ -105,19 +102,17 @@ export async function deployStreaming(
     // 7. AddressDriver logic — constructor: (dripsProxy, caller, driverId)
     console.log("[03-streaming] Deploying AddressDriver logic...");
     const addressDriverLogic = await deployFromArtifact(
-      walletClient,
-      client,
+      walletClient, client,
       "out/AddressDriver.sol/AddressDriver.json",
-      [dripsProxy, caller, driverId]
+      [dripsProxy, caller, driverId], undefined, "xylkstream.addressDriverLogic"
     );
 
     // 8. ManagedProxy for AddressDriver — constructor: (addressDriverLogic, deployer, "")
     console.log("[03-streaming] Deploying ManagedProxy (AddressDriver)...");
     const addressDriverProxy = await deployFromArtifact(
-      walletClient,
-      client,
+      walletClient, client,
       "out/Managed.sol/ManagedProxy.json",
-      [addressDriverLogic, deployer, "0x"]
+      [addressDriverLogic, deployer, "0x"], undefined, "xylkstream.addressDriverProxy"
     );
     console.log(`  addressDriverProxy → ${addressDriverProxy}`);
 
@@ -135,10 +130,9 @@ export async function deployStreaming(
     // 10. YieldManager — constructor: (dripsProxy)
     console.log("[03-streaming] Deploying YieldManager...");
     const yieldManager = await deployFromArtifact(
-      walletClient,
-      client,
+      walletClient, client,
       "out/YieldManager.sol/YieldManager.json",
-      [dripsProxy]
+      [dripsProxy], undefined, "xylkstream.yieldManager"
     );
 
     console.log("\n[03-streaming] All contracts deployed successfully.");

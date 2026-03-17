@@ -1,6 +1,6 @@
-import { Zap, Edit2, Play, Pause, Trash2, Archive } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/avatar";
-import { Button } from "@/components/button";
+import { Edit2, Play, Pause, Shield } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
+import { Button } from "@/components/atoms/button";
 import { formatCurrency, cn } from "@/utils";
 
 interface StreamCardProps {
@@ -17,10 +17,12 @@ interface StreamCardProps {
     rateInterval: string; // e.g., "/s", "/mo"
     progress: number; // 0-100
   };
+  /** When true, renders a stealth-wallet / privacy badge on the card */
+  isPrivate?: boolean;
   className?: string;
 }
 
-export function StreamCard({ stream, className }: StreamCardProps) {
+export function StreamCard({ stream, isPrivate, className }: StreamCardProps) {
   const isActive = stream.status === "ACTIVE";
 
   return (
@@ -50,8 +52,22 @@ export function StreamCard({ stream, className }: StreamCardProps) {
           </div>
         </div>
 
-        {/* Status Dot */}
-        <div className="relative flex items-center justify-center w-2 h-2">
+        {/* Privacy Badge */}
+        <div className="flex items-center gap-2">
+          {isPrivate && (
+            <div
+              title="private stream — sent via stealth wallet"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20"
+            >
+              <Shield className="w-2.5 h-2.5 text-amber-400 fill-amber-400/20" />
+              <span className="text-[9px] text-amber-400 uppercase tracking-wider font-medium">
+                private
+              </span>
+            </div>
+          )}
+
+          {/* Status Dot */}
+          <div className="relative flex items-center justify-center w-2 h-2">
           <div
             className={cn(
               "w-1.5 h-1.5 rounded-full transition-colors duration-500",
@@ -70,6 +86,7 @@ export function StreamCard({ stream, className }: StreamCardProps) {
           {isActive && (
             <div className="absolute inset-[-4px] w-[16px] h-[16px] rounded-full bg-status-active/10 animate-pulse duration-[4s]" />
           )}
+          </div>
         </div>
       </div>
 

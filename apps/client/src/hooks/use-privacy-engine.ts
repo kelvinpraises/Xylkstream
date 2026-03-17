@@ -1,31 +1,20 @@
-/**
- * use-privacy-engine.ts — Privacy lifecycle management hook.
- *
- * Manages:
- *   - Local incremental Merkle tree (synced from ZWERC20 on-chain state)
- *   - Privacy secret generation and encrypted-localStorage persistence
- *   - ZK remint proof generation via snarkjs groth16 (circuit artifacts lazy-loaded from /public/circuits/)
- *
- * Does NOT import from WDK or stealth-wallet packages (bundling issues).
- */
+// use-privacy-engine.ts — privacy lifecycle hook: Merkle tree sync, secret management, ZK proof generation
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   getPublicClient,
-  getContractAddresses,
-  ZWERC20_ABI,
-} from "@/lib/drips";
+  zwerc20Abi,
+} from "@/utils/streams";
+import { useChain } from "@/providers/chain-provider";
 import {
   IncrementalMerkleTree,
   derivePrivacyAddress,
   calculateNullifier,
   generateZKProof,
   type CircuitInput,
-} from "@/lib/privacy";
+} from "@/utils/erc8065";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+// --- types ---
 
 export interface PrivacySecret {
   /** Random 52-bit scalar used to derive the privacy address. */
@@ -87,18 +76,18 @@ export interface RemintData {
   proof: `0x${string}`;
   /** Whether to redeem (burn) rather than remint. */
   redeem: boolean;
+  /** Optional prover routing data (empty bytes when using default prover). */
+  proverData: `0x${string}`;
+  /** Optional relayer routing data (empty bytes when no relayer). */
+  relayerData: `0x${string}`;
 }
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+// --- constants ---
 
 const TREE_DEPTH = 20;
 const STORAGE_KEY = "xylk-privacy-secrets";
 
-// ---------------------------------------------------------------------------
-// Serialisation helpers
-// ---------------------------------------------------------------------------
+// --- serialisation helpers ---
 
 function serializeSecret(s: PrivacySecret): SerializedSecret {
   return {
@@ -144,20 +133,18 @@ function saveSecretsToStorage(secrets: Map<string, PrivacySecret>) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
 }
 
-// ---------------------------------------------------------------------------
-// Hook
-// ---------------------------------------------------------------------------
+// --- hook ---
 
 /**
  * usePrivacyEngine
  *
  * @param zwTokenAddress — Optional ZWERC20 contract address override.
- *   Falls back to `getContractAddresses().zwUSDC` when omitted.
+ *   Falls back to `config.ZW_USDC` when omitted.
  */
 export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
-  // ------------------------------------------------------------------
-  // State
-  // ------------------------------------------------------------------
+  const { chainConfig } = useChain();
+
+  // --- state ---
 
   const [state, setState] = useState<PrivacyEngineState>({
     isReady: false,
@@ -178,29 +165,20 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     loadSecretsFromStorage(),
   );
 
-  // ------------------------------------------------------------------
-  // Load secrets from localStorage on mount (handles SSR / hydration).
-  // ------------------------------------------------------------------
+  // load secrets from localStorage on mount (handles SSR / hydration)
 
   useEffect(() => {
     secretsRef.current = loadSecretsFromStorage();
   }, []);
 
-  // ------------------------------------------------------------------
-  // Resolve the contract address to use
-  // ------------------------------------------------------------------
+  // resolve the contract address to use
 
   const resolveAddress = useCallback((): `0x${string}` | undefined => {
     if (zwTokenAddress) return zwTokenAddress;
-    const addresses = getContractAddresses();
-    return (addresses as Record<string, string>).zwUSDC as
-      | `0x${string}`
-      | undefined;
-  }, [zwTokenAddress]);
+    return chainConfig.contracts.zwUsdc;
+  }, [zwTokenAddress, chainConfig]);
 
-  // ------------------------------------------------------------------
-  // syncTree
-  // ------------------------------------------------------------------
+  // --- syncTree ---
 
   /**
    * Fetch all commitment leaves from the ZWERC20 contract and rebuild the
@@ -220,12 +198,12 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     setState((s) => ({ ...s, error: null }));
 
     try {
-      const publicClient = getPublicClient();
+      const publicClient = getPublicClient(chainConfig.chain);
 
       // 1. How many leaves exist in group 0?
       const leafCount = (await publicClient.readContract({
         address: addr,
-        abi: ZWERC20_ABI,
+        abi: zwerc20Abi,
         functionName: "getCommitLeafCount",
         args: [0n],
       })) as bigint;
@@ -239,10 +217,10 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
       if (count > 0) {
         const [hashes, , amounts] = (await publicClient.readContract({
           address: addr,
-          abi: ZWERC20_ABI,
+          abi: zwerc20Abi,
           functionName: "getCommitLeaves",
           args: [0n, 0n, leafCount],
-        })) as [bigint[], `0x${string}`[], bigint[]];
+        })) as unknown as [bigint[], `0x${string}`[], bigint[]];
 
         commitmentHashes = hashes.map((h) => BigInt(h));
         onChainAmounts = amounts.map((a) => BigInt(a));
@@ -297,9 +275,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     }
   }, [resolveAddress]);
 
-  // ------------------------------------------------------------------
-  // generateSecret
-  // ------------------------------------------------------------------
+  // --- generateSecret ---
 
   /**
    * Derive a fresh PrivacySecret from a cryptographically random 52-bit scalar.
@@ -336,9 +312,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     [],
   );
 
-  // ------------------------------------------------------------------
-  // storeSecret
-  // ------------------------------------------------------------------
+  // --- storeSecret ---
 
   /**
    * Persist a PrivacySecret (with confirmed leafIndex + amount) to the
@@ -349,9 +323,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     saveSecretsToStorage(secretsRef.current);
   }, []);
 
-  // ------------------------------------------------------------------
-  // resolveLeafIndex
-  // ------------------------------------------------------------------
+  // --- resolveLeafIndex ---
 
   /**
    * After a deposit tx is confirmed, call this to match the on-chain leaf index
@@ -372,9 +344,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     [],
   );
 
-  // ------------------------------------------------------------------
-  // markSpent
-  // ------------------------------------------------------------------
+  // --- markSpent ---
 
   /**
    * Mark a secret as spent after a successful remint tx so it is excluded
@@ -388,9 +358,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     saveSecretsToStorage(secretsRef.current);
   }, []);
 
-  // ------------------------------------------------------------------
-  // generateRemintProof
-  // ------------------------------------------------------------------
+  // --- generateRemintProof ---
 
   /**
    * Build the circuit input and generate a groth16 ZK proof for reminting
@@ -488,6 +456,8 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
           nullifiers: [nullifierHex],
           proof: proofBytes as `0x${string}`,
           redeem,
+          proverData: "0x",
+          relayerData: "0x",
         };
 
         setState((s) => ({
@@ -510,9 +480,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     [],
   );
 
-  // ------------------------------------------------------------------
-  // Derived helpers
-  // ------------------------------------------------------------------
+  // --- derived helpers ---
 
   /** All secrets that have a confirmed leaf index and have not been spent. */
   const unspentSecrets = Array.from(secretsRef.current.values()).filter(
@@ -525,9 +493,7 @@ export function usePrivacyEngine(zwTokenAddress?: `0x${string}`) {
     0n,
   );
 
-  // ------------------------------------------------------------------
-  // Return
-  // ------------------------------------------------------------------
+  // --- return ---
 
   return {
     // State flags

@@ -33,10 +33,10 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement;
 
-    // Remove legacy classes if any
+    // remove legacy classes if any
     root.classList.remove("light", "dark");
 
-    // Remove existing data-theme
+    // remove existing data-theme
     root.removeAttribute("data-theme");
 
     if (theme === "system") {
@@ -45,10 +45,10 @@ export function ThemeProvider({
         : "lavender";
 
       root.setAttribute("data-theme", systemTheme);
-      // For legacy tailwind dark mode support if needed
+      // for legacy tailwind dark mode support if needed
       if (systemTheme === "aurora") root.classList.add("dark");
-      
-      // Listen for system theme changes
+
+      // listen for system theme changes
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
       const handleChange = (e: MediaQueryListEvent) => {
         const newSystemTheme = e.matches ? "aurora" : "lavender";
@@ -80,6 +80,7 @@ export function ThemeProvider({
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => {
   const context = useContext(ThemeProviderContext);
 

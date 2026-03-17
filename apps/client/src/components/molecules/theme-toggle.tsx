@@ -1,15 +1,15 @@
 import { Moon, Sun, Sparkles } from "lucide-react";
 import { useTheme } from "@/providers/theme-provider";
-import { Button } from "@/components/button";
+import { Button } from "@/components/atoms/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/dropdown-menu";
+} from "@/components/molecules/dropdown-menu";
 
 export function ThemeToggle() {
-  const { setTheme, theme } = useTheme();
+  const { setTheme } = useTheme();
 
   return (
     <DropdownMenu>

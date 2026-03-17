@@ -1,7 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
-import { useStealthWallet } from "@/hooks";
+import { useStealthWallet } from "@/hooks/use-stealth-wallet";
 
-// Re-export the return type of useStealthWallet as the context value
+// re-export the return type of useStealthWallet as the context value
 type StealthWalletContextValue = ReturnType<typeof useStealthWallet>;
 
 const StealthWalletContext = createContext<StealthWalletContextValue | null>(null);
@@ -15,6 +15,7 @@ export function StealthWalletProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useStealthWalletContext() {
   const context = useContext(StealthWalletContext);
   if (!context) {

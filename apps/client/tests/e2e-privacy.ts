@@ -52,11 +52,10 @@ import { anvil } from "viem/chains";
 import * as snarkjs from "snarkjs";
 
 import WalletManagerEvmErc4337 from "@xylkstream/wdk-4337";
-import type { WalletAccountEvmErc4337 } from "@xylkstream/wdk-4337";
 
-import { ERC20_ABI } from "../src/lib/drips.js";
-import { derivePrivacyAddress, calculateNullifier } from "../src/lib/privacy/privacy.js";
-import { IncrementalMerkleTree } from "../src/lib/privacy/merkle.js";
+import { erc20Abi } from "../src/utils/streams.js";
+import { derivePrivacyAddress, calculateNullifier } from "../src/utils/erc8065/privacy.js";
+import { IncrementalMerkleTree } from "../src/utils/erc8065/merkle.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              ABIs
@@ -205,7 +204,7 @@ const ZWERC20_ABI = [
 ] as const;
 
 const MOCK_ERC20_ABI = [
-  ...ERC20_ABI,
+  ...erc20Abi,
   {
     type: "function",
     name: "mint",
@@ -264,7 +263,6 @@ const c = {
 };
 
 const shortAddr  = (addr: string): string => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-const shortHash  = (hash: string): string => `${hash.slice(0, 10)}...${hash.slice(-6)}`;
 
 const log      = (msg: string)              => console.log(msg);
 const logAct   = (title: string)            => {
@@ -490,7 +488,7 @@ async function main() {
       functionName: "approve",
       args: [ADDRESSES.zwUSDC, DEPOSIT_AMOUNT],
     }),
-    value: "0",
+    value: 0n,
   });
   await waitForUserOp(approveTxResult.hash, BUNDLER_URL);
 
@@ -536,7 +534,7 @@ async function main() {
       functionName: "deposit",
       args: [privacyAddress, TOKEN_ID, DEPOSIT_AMOUNT, "0x"],
     }),
-    value: "0",
+    value: 0n,
   });
   await waitForUserOp(depositTxResult.hash, BUNDLER_URL);
   logResult(`UserOp: ${depositTxResult.hash}`);
@@ -739,7 +737,7 @@ async function main() {
           },
         ],
       }),
-      value: "0",
+      value: 0n,
     });
     await waitForUserOp(remintTxResult.hash, BUNDLER_URL);
     logResult(`UserOp: ${remintTxResult.hash}`);

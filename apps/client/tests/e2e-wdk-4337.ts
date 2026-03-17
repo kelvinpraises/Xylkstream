@@ -27,7 +27,6 @@ import {
   createWalletClient,
   http,
   parseUnits,
-  parseEther,
   formatUnits,
   encodeFunctionData,
   sha256,
@@ -39,9 +38,8 @@ import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { anvil } from "viem/chains";
 
 import WalletManagerEvmErc4337 from "@xylkstream/wdk-4337";
-import type { WalletAccountEvmErc4337 } from "@xylkstream/wdk-4337";
 
-import { ERC20_ABI } from "../src/lib/drips.js";
+import { erc20Abi } from "../src/utils/streams.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              CONFIGURATION
@@ -72,7 +70,7 @@ const PAYMASTER_URL = "http://localhost:4848/paymaster/localhost";
 const DERIVATION_PATH = "0'/0/0";
 
 const MOCK_ERC20_ABI = [
-  ...ERC20_ABI,
+  ...erc20Abi,
   {
     type: "function",
     name: "mint",
@@ -123,7 +121,6 @@ const logAct = (title: string) => {
 const logScene  = (title: string) => console.log(`\n  ${c.bold}-- ${title} --${c.reset}`);
 const logAction = (who: string, action: string) =>
   console.log(`  ${c.cyan}${who}${c.reset} ${action}`);
-const logResult = (msg: string) => console.log(`    -> ${msg}`);
 const logDetail = (label: string, val: unknown) =>
   console.log(`    ${c.dim}${label}:${c.reset} ${val}`);
 
@@ -136,10 +133,6 @@ const pass = (msg: string): true => {
   return true;
 };
 
-const fail = (msg: string, extra?: unknown): never => {
-  console.error(`  ${c.red}x FAIL: ${msg}${c.reset}`, extra ?? "");
-  process.exit(1);
-};
 
 const assert = (cond: boolean, msg: string): void => {
   if (cond) {
@@ -330,7 +323,7 @@ async function main() {
   const tx = {
     to: ADDRESSES.mockUSDC,
     data: transferData,
-    value: "0",
+    value: 0n,
   };
 
   const txResult = await stealthAccount.sendTransaction(tx);

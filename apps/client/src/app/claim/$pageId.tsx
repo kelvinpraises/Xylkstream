@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { usePrivy } from "@privy-io/react-auth";
-import { Button } from "@/components/button";
-import { Card } from "@/components/card";
+import { Button } from "@/components/atoms/button";
+import { Card } from "@/components/molecules/card";
 import { Wallet } from "lucide-react";
 import { motion } from "framer-motion";
 

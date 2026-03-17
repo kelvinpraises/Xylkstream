@@ -1,7 +1,27 @@
-import { createPublicClient, createWalletClient, http, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
+import { createPublicClient, createWalletClient, http, encodeAbiParameters, parseAbiParameters, keccak256, toHex, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
+
+// Nick's deterministic deployer — present on Anvil and most EVM chains
+export const DETERMINISTIC_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C" as Address;
+
+// Compute a fixed salt from a human-readable label
+export function labelSalt(label: string): Hex {
+  return keccak256(toHex(label));
+}
+
+// Compute the CREATE2 address without deploying
+export function computeCreate2Address(
+  salt: Hex,
+  initcode: Hex,
+): Address {
+  const initcodeHash = keccak256(initcode);
+  const factory = DETERMINISTIC_DEPLOYER.slice(2).toLowerCase();
+  const payload = `0xff${factory}${salt.slice(2)}${initcodeHash.slice(2)}`;
+  const hash = keccak256(payload as Hex);
+  return `0x${hash.slice(26)}` as Address;
+}
 
 // Types
 export type ScopeResult = {
@@ -46,58 +66,72 @@ export async function isDeployed(client: PublicClient, address: Address): Promis
   return !!code && code !== "0x";
 }
 
-// Read forge artifact and deploy via viem
+// Build initcode = bytecode + abi-encoded constructor args
+function buildInitcode(
+  artifact: any,
+  constructorArgs?: any[],
+  libraries?: Record<string, Address>
+): Hex {
+  let bytecode: Hex = artifact.bytecode.object;
+
+  // Link libraries: replace __$<hash>$__ placeholders
+  if (libraries) {
+    for (const addr of Object.values(libraries)) {
+      const clean = addr.slice(2).toLowerCase();
+      bytecode = bytecode.replace(new RegExp(`__\\$[a-f0-9]{34}\\$__`, "g"), clean) as Hex;
+    }
+  }
+
+  if (!constructorArgs || constructorArgs.length === 0) return bytecode;
+
+  // Encode constructor args
+  const ctorInputs = artifact.abi.filter((x: any) => x.type === "constructor")[0]?.inputs ?? [];
+  const encoded = encodeAbiParameters(ctorInputs, constructorArgs);
+  return (bytecode + encoded.slice(2)) as Hex;
+}
+
+// Deploy a contract deterministically via CREATE2.
+// Same label + same bytecode + same args = same address on every chain.
+// If already deployed at the computed address, skips silently.
 export async function deployFromArtifact(
   walletClient: WalletClient,
   publicClient: PublicClient,
   artifactPath: string,
   constructorArgs?: any[],
-  libraries?: Record<string, Address>
+  libraries?: Record<string, Address>,
+  label?: string,
 ): Promise<Address> {
   const fullPath = join(CONTRACTS_ROOT, artifactPath);
   const artifact = JSON.parse(readFileSync(fullPath, "utf-8"));
-  let bytecode: Hex = artifact.bytecode.object;
+  const initcode = buildInitcode(artifact, constructorArgs, libraries);
 
-  // Link libraries if needed
-  if (libraries) {
-    for (const [placeholder, addr] of Object.entries(libraries)) {
-      // Forge uses __$<keccak256(fqn)[:34]>$__ as placeholder
-      // But we can also do simple string replacement on the library path hash
-      const clean = addr.slice(2).toLowerCase();
-      // Replace all library placeholders matching this address
-      bytecode = bytecode.replace(new RegExp(`__\\$[a-f0-9]{34}\\$__`, "g"), clean) as Hex;
-    }
+  // Default label = artifact filename without path/extension
+  const salt = labelSalt(label ?? artifactPath);
+  const predicted = computeCreate2Address(salt, initcode);
+
+  // Skip if already deployed
+  if (await isDeployed(publicClient, predicted)) {
+    console.log(`  ✓ ${label ?? artifactPath} already at ${predicted}`);
+    return predicted;
   }
 
-  const hash = await walletClient.deployContract({
-    abi: artifact.abi,
-    bytecode,
-    args: constructorArgs ?? [],
-  });
-
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (!receipt.contractAddress) throw new Error(`Deploy failed for ${artifactPath}`);
-  console.log(`  Deployed ${artifactPath} → ${receipt.contractAddress}`);
-  return receipt.contractAddress;
-}
-
-// Deploy raw bytecode (for contracts from npm packages like Safe)
-export async function deployBytecode(
-  walletClient: WalletClient,
-  publicClient: PublicClient,
-  bytecode: Hex,
-  abi?: any[],
-  constructorArgs?: any[]
-): Promise<Address> {
-  const hash = await walletClient.deployContract({
-    abi: abi ?? [],
-    bytecode,
-    args: constructorArgs ?? [],
+  // Deploy via nick's factory: salt + initcode as calldata
+  const hash = await walletClient.sendTransaction({
+    to: DETERMINISTIC_DEPLOYER,
+    data: (salt + initcode.slice(2)) as Hex,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (!receipt.contractAddress) throw new Error("Deploy failed for raw bytecode");
-  console.log(`  Deployed raw bytecode → ${receipt.contractAddress}`);
-  return receipt.contractAddress;
+  if (!receipt.status || receipt.status === "reverted") {
+    throw new Error(`CREATE2 deploy failed for ${label ?? artifactPath}`);
+  }
+
+  // Verify
+  if (!(await isDeployed(publicClient, predicted))) {
+    throw new Error(`CREATE2 deploy did not land at predicted address ${predicted}`);
+  }
+
+  console.log(`  Deployed ${label ?? artifactPath} → ${predicted}`);
+  return predicted;
 }
 
 // Read output state

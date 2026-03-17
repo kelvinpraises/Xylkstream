@@ -30,13 +30,14 @@ export function YieldReactor({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
-    if (!gl) {
+    const glRaw = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    if (!glRaw) {
       console.warn("WebGL not supported");
       return;
     }
 
-    glRef.current = gl as WebGLRenderingContext;
+    const gl = glRaw as WebGLRenderingContext;
+    glRef.current = gl;
 
     // Vertex shader
     const vsSource = `

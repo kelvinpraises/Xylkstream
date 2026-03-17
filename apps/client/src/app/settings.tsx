@@ -7,20 +7,20 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-} from "@/components/card";
-import { Button } from "@/components/button";
-import { Input } from "@/components/input";
-import { Label } from "@/components/label";
-import { Switch } from "@/components/switch";
-import { Separator } from "@/components/separator";
-import { Badge } from "@/components/badge";
+} from "@/components/molecules/card";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
+import { Switch } from "@/components/atoms/switch";
+import { Separator } from "@/components/atoms/separator";
+import { Badge } from "@/components/atoms/badge";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/select";
+} from "@/components/atoms/select";
 import {
   Copy,
   Check,
@@ -37,7 +37,6 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { user, ready } = usePrivy();
-  const account = null;
   const accountLoading = !ready;
   // TODO: const { getDeployment } = useContractDeployment();
   // TODO: const { data: yieldEligibility } = useYieldEligibility();

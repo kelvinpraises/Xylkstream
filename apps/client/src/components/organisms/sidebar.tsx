@@ -5,23 +5,23 @@ import { VariantProps, cva } from "class-variance-authority";
 import { PanelLeftIcon } from "lucide-react";
 import * as React from "react";
 
-import { Button } from "@/components/button";
-import { Input } from "@/components/input";
-import { Separator } from "@/components/separator";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Separator } from "@/components/atoms/separator";
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@/components/sheet";
-import { Skeleton } from "@/components/skeleton";
+} from "@/components/molecules/sheet";
+import { Skeleton } from "@/components/atoms/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/tooltip";
+} from "@/components/atoms/tooltip";
 import { cn } from "@/utils";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
@@ -597,9 +597,7 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }) {
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`;
-  }, []);
+  const [width] = React.useState(() => `${Math.floor(Math.random() * 40) + 50}%`);
 
   return (
     <div
@@ -706,5 +704,6 @@ export {
   SidebarRail,
   SidebarSeparator,
   SidebarTrigger,
+  // eslint-disable-next-line react-refresh/only-export-components
   useSidebar,
 };

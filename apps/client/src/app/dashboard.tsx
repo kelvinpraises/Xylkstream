@@ -1,13 +1,21 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Droplets, Activity, TrendingUp, Wallet } from "lucide-react";
-import { usePrivy } from "@privy-io/react-auth";
-import { useMemo } from "react";
-import { StreamCard } from "@/components/stream-card";
-import { YieldReactor } from "@/components/yield-reactor";
-import { WelcomeDialog } from "@/components/welcome-dialog";
-import { Skeleton } from "@/components/skeleton";
-import { Badge } from "@/components/badge";
+import { Plus, Droplets, Activity, TrendingUp, Wallet, ShieldCheck } from "lucide-react";
+import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { useMemo, useState } from "react";
+import { formatUnits } from "viem";
+import { StreamCard } from "@/components/organisms/stream-card";
+import { YieldReactor } from "@/components/organisms/yield-reactor";
+import { WelcomeDialog } from "@/components/organisms/welcome-dialog";
+import { PasswordDialog } from "@/components/organisms/password-dialog";
+import { DepositPrivacyDialog } from "@/components/organisms/deposit-privacy-form";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { Badge } from "@/components/atoms/badge";
 import { truncateAddress, cn } from "@/utils";
+import { getStreams } from "@/store/stream-store";
+import { useTokenBalance } from "@/hooks/use-stream-reads";
+import { useStealthWallet } from "@/hooks/use-stealth-wallet";
+import { useChain } from "@/providers/chain-provider";
+import { getSendableTokens } from "@/config/chains";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -24,140 +32,98 @@ function StatSkeleton() {
   );
 }
 
-function StreamSkeleton() {
-  return (
-    <div className="rounded-2xl bg-card border border-white/5 p-5">
-      <div className="flex items-center gap-3 mb-6">
-        <Skeleton className="w-9 h-9 rounded-full" />
-        <div>
-          <Skeleton className="w-24 h-4 mb-1" />
-          <Skeleton className="w-16 h-3" />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-4 mb-5">
-        <Skeleton className="w-full h-10" />
-        <Skeleton className="w-full h-10" />
-      </div>
-      <Skeleton className="w-full h-1.5 rounded-full" />
-    </div>
-  );
-}
-
-// TODO: restore DeployCTA once useContractDeployment and useDeploymentSSE are reimplemented
-function DeployCTA() {
-  return null;
-}
 
 function DashboardPage() {
   const navigate = useNavigate();
   const { ready } = usePrivy();
-  const streams: undefined = undefined;
-  const isLoadingStreams = false;
-  const balances = null;
-  const aggregatedBalances = null;
-  const yieldEligibility: undefined = undefined;
-  const deployments: undefined[] = [];
+  const { wallets } = useWallets();
+  const [shieldDialogOpen, setShieldDialogOpen] = useState(false);
 
-  const hasDeployments = (deployments ?? []).length > 0;
-  const isLoading = !ready || isLoadingStreams;
+  // Privy embedded wallet address
+  const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
+  const walletAddress = embeddedWallet?.address as `0x${string}` | undefined;
 
-  const formattedStreams = useMemo(() => {
-    if (!streams) return [];
-    return streams.map((s) => ({
-      id: s.id,
-      recipientName: truncateAddress(s.recipientAddress),
-      recipientAddress: truncateAddress(s.recipientAddress),
-      avatarFallback: s.recipientAddress.slice(0, 2).toUpperCase(),
-      status: s.status,
-      streamedAmount: s.vestedAmount,
-      streamedCurrency: s.asset,
-      rateAmount: s.amount / 30,
-      rateInterval: "/mo",
-      progress: s.amount > 0 ? (s.vestedAmount / s.amount) * 100 : 0,
-    }));
-  }, [streams]);
+  // Stealth wallet (privacy layer)
+  const { stealthAddress, isReady: isStealthReady } = useStealthWallet();
 
+  // Chain config
+  const { chainConfig, chainId } = useChain();
+
+  // Primary token balance
+  const primaryToken = getSendableTokens(chainConfig.contracts)[0]?.address;
+
+  const { data: tokenBalanceRaw } = useTokenBalance(walletAddress, primaryToken);
+
+  const walletBalance = useMemo(() => {
+    if (tokenBalanceRaw === undefined) return null;
+    return parseFloat(formatUnits(tokenBalanceRaw, 18));
+  }, [tokenBalanceRaw]);
+
+  // Stealth wallet balance (zwUSDC)
+  const { data: stealthBalanceRaw } = useTokenBalance(
+    isStealthReady && stealthAddress ? (stealthAddress as `0x${string}`) : undefined,
+    chainConfig.contracts.zwUsdc,
+  );
+  const stealthBalance = useMemo(() => {
+    if (!stealthBalanceRaw) return 0;
+    return parseFloat(formatUnits(stealthBalanceRaw, 18));
+  }, [stealthBalanceRaw]);
+
+  // Streams from localStorage (partitioned by chain)
+  const streams = useMemo(() => getStreams(chainId), [chainId]);
+  const isLoading = !ready;
+
+  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
+
+  // Compute stats from localStorage streams
   const stats = useMemo(() => {
-    if (!streams || streams.length === 0) {
+    const activeStreams = streams.filter((s) => s.endTimestamp > nowSecs).length;
+    const totalAmount = streams.reduce((sum, s) => sum + parseFloat(s.totalAmount || "0"), 0);
+    const outflowRate = streams
+      .filter((s) => s.endTimestamp > nowSecs)
+      .reduce((sum, s) => {
+        // amtPerSec is in internal Drips units (wei * 10^9), convert back to tokens/sec
+        const rawPerSec = BigInt(s.amtPerSec);
+        const tokensPerSec = Number(rawPerSec) / 1e27; // 10^18 decimals * 10^9 multiplier
+        return sum + tokensPerSec;
+      }, 0);
+    return { activeStreams, totalAmount, outflowRate };
+  }, [streams, nowSecs]);
+
+  // Format streams for StreamCard
+  const formattedStreams = useMemo(() => {
+    return streams.map((s) => {
+      const duration = s.endTimestamp - s.startTimestamp;
+      const elapsed = Math.max(0, nowSecs - s.startTimestamp);
+      const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+      const streamed = parseFloat(s.totalAmount) * (progress / 100);
+      const isActive = s.endTimestamp > nowSecs;
       return {
-        activeStreams: 0,
-        pendingStreams: 0,
-        totalStreamed: 0,
-        totalVested: 0,
-        yieldEarned: 0,
-        yieldAPY: 0,
-        outflowRate: 0,
+        id: s.id,
+        recipientName: truncateAddress(s.recipientAddress),
+        recipientAddress: truncateAddress(s.recipientAddress),
+        avatarFallback: s.recipientAddress.slice(2, 4).toUpperCase(),
+        status: (isActive ? "ACTIVE" : "COMPLETED") as "ACTIVE" | "COMPLETED",
+        streamedAmount: streamed,
+        streamedCurrency: s.tokenSymbol,
+        rateAmount: parseFloat(s.totalAmount) / Math.max(1, duration / (86400 * 30)),
+        rateInterval: "/mo",
+        progress,
       };
-    }
+    });
+  }, [streams, nowSecs]);
 
-    const activeStreams = streams.filter((s) => s.status === "ACTIVE").length;
-    const pendingStreams = streams.filter((s) => s.status === "PENDING").length;
-    const totalStreamed = streams.reduce((sum, s) => sum + s.amount, 0);
-    const totalVested = streams.reduce((sum, s) => sum + s.vestedAmount, 0);
-    const yieldEarned = streams.reduce((sum, s) => sum + (s.yieldEarned || 0), 0);
-
-    let outflowRate = 0;
-    const activeOnes = streams.filter((s) => s.status === "ACTIVE");
-    for (const s of activeOnes) {
-      const start = new Date(s.startDate).getTime();
-      const end = new Date(s.endDate).getTime();
-      const durationSecs = (end - start) / 1000;
-      if (durationSecs > 0) {
-        outflowRate += s.amount / durationSecs;
-      }
-    }
-
-    const yieldAPY = totalStreamed > 0 ? (yieldEarned / totalStreamed) * 100 : 0;
-
-    return {
-      activeStreams,
-      pendingStreams,
-      totalStreamed,
-      totalVested,
-      yieldEarned,
-      yieldAPY,
-      outflowRate,
-    };
-  }, [streams]);
-
-  // Compute total wallet balance from RPC balances
-  const totalBalance = useMemo(() => {
-    if (!balances) return null;
-    const entries = Object.entries(balances);
-    if (entries.length === 0) return null;
-    let sum = 0;
-    for (const [, val] of entries) {
-      const num = parseFloat(val);
-      if (!isNaN(num)) sum += num;
-    }
-    return sum;
-  }, [balances]);
-
-  // Aggregated balance breakdown
-  const balanceBreakdown = useMemo(() => {
-    if (!aggregatedBalances?.balances) return null;
-    let wallet = 0, drips = 0, yield_ = 0;
-    for (const b of aggregatedBalances.balances) {
-      wallet += parseFloat(b.wallet) || 0;
-      drips += parseFloat(b.drips) || 0;
-      yield_ += parseFloat(b.yieldManager) || 0;
-    }
-    const total = wallet + drips + yield_;
-    return { wallet, drips, yield: yield_, total };
-  }, [aggregatedBalances]);
-
-  // Check if any yield pools are available
-  const hasYieldPools = useMemo(() => {
-    if (!yieldEligibility?.tokens) return false;
-    return yieldEligibility.tokens.some(t => t.yieldAvailable);
-  }, [yieldEligibility]);
-
-  const hasStreams = streams && streams.length > 0;
+  const hasStreams = streams.length > 0;
+  const totalDisplayBalance = (walletBalance ?? 0) + stealthBalance;
 
   return (
     <div className="w-full max-w-7xl mx-auto">
       {/* Welcome dialog for new users */}
       <WelcomeDialog />
+      {/* Password dialog — derives stealth wallet after login */}
+      <PasswordDialog />
+      {/* Privacy deposit dialog */}
+      <DepositPrivacyDialog open={shieldDialogOpen} onOpenChange={setShieldDialogOpen} />
 
       {/* Header */}
       <div className="mb-12">
@@ -181,7 +147,6 @@ function DashboardPage() {
           <>
             {/* Total Outflow / Balance with Shader */}
             <div className="relative p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all overflow-hidden">
-              {/* Shader Background -- always visible, faster when streaming */}
               <div className="absolute inset-0 opacity-30">
                 <YieldReactor
                   active={true}
@@ -189,7 +154,6 @@ function DashboardPage() {
                 />
               </div>
 
-              {/* Content */}
               <div className="relative z-10">
                 <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
                   {hasStreams ? (
@@ -211,66 +175,29 @@ function DashboardPage() {
                 ) : (
                   <>
                     <p className="text-3xl font-light text-foreground font-mono">
-                      {balanceBreakdown ? balanceBreakdown.total.toFixed(2) : totalBalance !== null ? totalBalance.toFixed(2) : "0.00"}
+                      {totalDisplayBalance.toFixed(2)}
                     </p>
-                    {balanceBreakdown && balanceBreakdown.total > 0 ? (
-                      <p className="text-muted-foreground text-xs mt-1" title={`Wallet: $${balanceBreakdown.wallet.toFixed(2)} | In Streams: $${balanceBreakdown.drips.toFixed(2)} | Earning Yield: $${balanceBreakdown.yield.toFixed(2)}`}>
-                        Wallet: {balanceBreakdown.wallet.toFixed(2)}
-                        {balanceBreakdown.drips > 0 && ` | Streams: ${balanceBreakdown.drips.toFixed(2)}`}
-                        {balanceBreakdown.yield > 0 && ` | Yield: ${balanceBreakdown.yield.toFixed(2)}`}
-                      </p>
-                    ) : (
-                      <p className="text-muted-foreground text-sm mt-1">
-                        {totalBalance !== null && totalBalance > 0
-                          ? "Ready to send"
-                          : "Add funds to get started"}
-                      </p>
-                    )}
+                    <p className="text-muted-foreground text-sm mt-1">
+                      {totalDisplayBalance > 0 ? "Ready to send" : "Add funds to get started"}
+                    </p>
                   </>
                 )}
               </div>
             </div>
 
-            {/* Yield Earned */}
+            {/* Bonus Earned — coming soon */}
             <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all">
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
                 <TrendingUp className="w-6 h-6 text-emerald-400" />
               </div>
               <h3 className="text-muted-foreground text-sm mb-2">Bonus Earned</h3>
-              {hasStreams && stats.yieldEarned > 0 ? (
-                <>
-                  <p className="text-3xl font-light text-emerald-400 font-mono">
-                    +{stats.yieldAPY.toFixed(2)}%
-                  </p>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    ${stats.yieldEarned.toFixed(2)} earned
-                  </p>
-                </>
-              ) : hasStreams && !hasYieldPools ? (
-                <>
-                  <p className="text-3xl font-light text-amber-400/60 font-mono">
-                    --
-                  </p>
-                  <p className="text-amber-400/70 text-sm mt-1">
-                    No yield pools on testnet
-                  </p>
-                  <p className="text-muted-foreground text-xs mt-0.5">
-                    Simulated rewards still accrue
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-3xl font-light text-muted-foreground/50 font-mono">
-                    --
-                  </p>
-                  <p className="text-muted-foreground text-sm mt-1">
-                    Rewards accrue on active payments
-                  </p>
-                </>
-              )}
+              <p className="text-3xl font-light text-muted-foreground/50 font-mono">--</p>
+              <p className="text-muted-foreground text-sm mt-1">
+                Yield coming soon
+              </p>
             </div>
 
-            {/* Active Streams */}
+            {/* Active Payments */}
             <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all">
               <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mb-4">
                 <Activity className="w-6 h-6 text-rose-400" />
@@ -285,21 +212,14 @@ function DashboardPage() {
                 {hasStreams ? stats.activeStreams : "--"}
               </p>
               <p className="text-muted-foreground text-sm mt-1">
-                {hasStreams && stats.pendingStreams > 0
-                  ? `${stats.pendingStreams} pending`
-                  : hasStreams
-                    ? `${streams.length} total`
-                    : "No payments yet"}
+                {hasStreams
+                  ? `${streams.length} total`
+                  : "No payments yet"}
               </p>
             </div>
           </>
         )}
       </div>
-
-      {/* Deploy CTA -- show only when not loading and no deployments exist */}
-      {!isLoading && !hasDeployments && (
-        <DeployCTA />
-      )}
 
       {/* Streams Section */}
       <div>
@@ -314,22 +234,25 @@ function DashboardPage() {
               </Badge>
             )}
           </div>
-          <button
-            onClick={() => navigate({ to: "/streams" })}
-            className="flex items-center gap-2 px-8 py-4 text-lg rounded-full bg-gradient-to-r from-[#0B1221] to-[#0f172a] border border-amber-500/30 text-white font-medium hover:border-amber-400/60 transition-all shadow-[0_0_25px_-8px_rgba(251,191,36,0.3)] hover:shadow-[0_0_35px_-5px_rgba(251,191,36,0.5)]"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Payment</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShieldDialogOpen(true)}
+              className="flex items-center gap-2 px-6 py-4 text-base rounded-full bg-gradient-to-r from-amber-600/20 to-rose-600/10 border border-amber-500/40 text-amber-300 font-medium hover:border-amber-400/70 hover:text-amber-200 transition-all shadow-[0_0_20px_-8px_rgba(251,191,36,0.25)] hover:shadow-[0_0_30px_-4px_rgba(251,191,36,0.4)]"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span className="lowercase">shield funds</span>
+            </button>
+            <button
+              onClick={() => navigate({ to: "/streams" })}
+              className="flex items-center gap-2 px-8 py-4 text-lg rounded-full bg-gradient-to-r from-[#0B1221] to-[#0f172a] border border-amber-500/30 text-white font-medium hover:border-amber-400/60 transition-all shadow-[0_0_25px_-8px_rgba(251,191,36,0.3)] hover:shadow-[0_0_35px_-5px_rgba(251,191,36,0.5)]"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Payment</span>
+            </button>
+          </div>
         </div>
 
-        {isLoadingStreams ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <StreamSkeleton />
-            <StreamSkeleton />
-            <StreamSkeleton />
-          </div>
-        ) : formattedStreams.length > 0 ? (
+        {formattedStreams.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {formattedStreams.map((stream) => (
               <StreamCard key={stream.id} stream={stream} />
@@ -342,9 +265,7 @@ function DashboardPage() {
             </div>
             <h3 className="text-foreground font-medium mb-2">No payments yet</h3>
             <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
-              {hasDeployments
-                ? "Send your first payment to get started."
-                : "Set up your account first, then send your first payment."}
+              Send your first payment to get started.
             </p>
             <button
               onClick={() => navigate({ to: "/streams" })}

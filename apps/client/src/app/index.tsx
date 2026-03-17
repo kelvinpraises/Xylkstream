@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { usePrivy } from "@privy-io/react-auth";
 import { useEffect } from "react";
-import { Zap } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   component: LoginPage,

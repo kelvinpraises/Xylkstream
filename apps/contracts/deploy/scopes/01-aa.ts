@@ -114,7 +114,7 @@ export async function deployAA(
       args = [contracts.entryPoint];
     }
 
-    const addr = await deployFromArtifact(walletClient, client, artifact.path, args);
+    const addr = await deployFromArtifact(walletClient, client, artifact.path, args, undefined, `xylkstream.${name}`);
     contracts[name] = addr;
   }
 

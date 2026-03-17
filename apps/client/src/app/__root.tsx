@@ -1,12 +1,9 @@
-import { createRootRoute, Link, Outlet, useLocation, useMatches } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
+import { createRootRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
 import RootProvider from "@/providers";
-import { Toaster } from "@/components/sonner";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarTrigger } from "@/components/sidebar";
-import { ThemeSwitcher } from "@/components/theme-switcher";
-import { ChevronRight } from "lucide-react";
-import { Separator } from "@/components/separator";
+import { Toaster } from "@/components/molecules/sonner";
+import { AppSidebar } from "@/components/organisms/app-sidebar";
+import { SidebarInset, SidebarTrigger } from "@/components/organisms/sidebar";
+import { Separator } from "@/components/atoms/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,7 +11,7 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/breadcrumb";
+} from "@/components/molecules/breadcrumb";
 import "@/styles/globals.css";
 
 export const Route = createRootRoute({

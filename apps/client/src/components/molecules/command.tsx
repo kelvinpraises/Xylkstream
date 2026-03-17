@@ -10,7 +10,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/atoms/dialog";
+} from "@/components/molecules/dialog";
 import { cn } from "@/utils";
 
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {

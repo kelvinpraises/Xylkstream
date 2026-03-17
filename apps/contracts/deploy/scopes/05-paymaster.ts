@@ -1,8 +1,9 @@
-import type { PublicClient, WalletClient, Address } from "viem";
+import type { PublicClient, WalletClient, Address, Hex } from "viem";
+import { createWalletClient, http, parseEther } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { type ScopeResult, deployFromArtifact } from "../utils.js";
 import { readFileSync } from "fs";
 import { join, resolve } from "path";
-import { parseEther } from "viem";
 
 const CONTRACTS_ROOT = resolve(import.meta.dirname, "../..");
 
@@ -31,11 +32,13 @@ export async function deployPaymaster(
   console.log(`  Owner/signer: ${owner}`);
 
   // 1. Deploy VerifyingPaymaster(entryPoint, verifyingSigner)
+  // XylkPaymaster: explicit owner (deployer) + verifyingSigner (executor)
+  // Needed because CREATE2 sets msg.sender = factory, not deployer
   const paymaster = await deployFromArtifact(
-    walletClient,
-    client,
-    "out/VerifyingPaymaster.sol/VerifyingPaymaster.json",
-    [entryPoint, owner]
+    walletClient, client,
+    "out/XylkPaymaster.sol/XylkPaymaster.json",
+    [entryPoint, owner, config.deployer],
+    undefined, "xylkstream.verifyingPaymaster"
   );
 
   // 2. Fund paymaster on EntryPoint — actual gas fund
@@ -51,9 +54,9 @@ export async function deployPaymaster(
   await client.waitForTransactionReceipt({ hash: depositHash });
   console.log("  ✓ Deposited 0.05 ETH");
 
-  // 3. Stake paymaster — minimal since we run our own bundler
+  // 3. Stake paymaster — owner is msg.sender at deploy time (deployer key)
   console.log("  Staking paymaster (0.01 ETH, 1 day unstake delay)...");
-  const paymasterAbi = loadAbi("out/VerifyingPaymaster.sol/VerifyingPaymaster.json");
+  const paymasterAbi = loadAbi("out/XylkPaymaster.sol/XylkPaymaster.json");
   const stakeHash = await walletClient.writeContract({
     address: paymaster,
     abi: paymasterAbi,

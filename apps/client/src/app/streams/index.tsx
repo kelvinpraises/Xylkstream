@@ -1,18 +1,17 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
-import { Plus, Check, Loader2, StopCircle, Play, Copy, XCircle, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/button";
-import { Input } from "@/components/input";
-import { Label } from "@/components/label";
-import { Card } from "@/components/card";
-import { Badge } from "@/components/badge";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useMemo } from "react";
+import { Plus, Check, Loader2, Copy, XCircle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
+import { Card } from "@/components/molecules/card";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from "@/components/select";
+} from "@/components/atoms/select";
 import { toast } from "sonner";
 import {
   Drawer,
@@ -21,22 +20,22 @@ import {
   DrawerTitle,
   DrawerDescription,
   DrawerFooter,
-} from "@/components/drawer";
-import { Separator } from "@/components/separator";
-import { CSVBatchDialog } from "@/components/csv-batch-dialog";
-import { useSendStream } from "@/hooks";
+} from "@/components/molecules/drawer";
+import { Separator } from "@/components/atoms/separator";
+import { CSVBatchDialog } from "@/components/organisms/csv-batch-dialog";
+import { PrivacyToggle } from "@/components/molecules/privacy-toggle";
+import { useCreateStream } from "@/hooks/use-stream-create";
+import { useTokenDecimals } from "@/hooks/use-token-decimals";
+import { getStreams } from "@/store/stream-store";
+import type { LocalStream } from "@/store/stream-store";
+import { useChain } from "@/providers/chain-provider";
+import { getSendableTokens } from "@/config/chains";
 
 export const Route = createFileRoute("/streams/")({
   component: StreamsPage,
 });
 
-// BSC well-known tokens
-const BSC_TOKENS = [
-  { symbol: "USDT", address: "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd", decimals: 18 },
-  { symbol: "USDC", address: "0x64544969ed7EBf5f083679233325356EbE738930", decimals: 18 },
-  { symbol: "BUSD", address: "0xaB1a4d4f1D656d2450692D237fdD6C7f9146e814", decimals: 18 },
-  { symbol: "WBNB", address: "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd", decimals: 18 },
-];
+// TOKENS is resolved inside the component via useChain
 
 // Wizard steps (chain & deploy are automatic — backend auto-deploys per-account)
 const WIZARD_STEPS = [
@@ -55,24 +54,30 @@ function formatDateForInput(date: Date) {
 }
 
 function StreamWizard({ onClose }: { onClose: () => void }) {
+  const { chainConfig } = useChain();
+  const TOKENS = getSendableTokens(chainConfig.contracts);
   const [currentStep, setCurrentStep] = useState(0);
   const [wizardState, setWizardState] = useState<"form" | "processing" | "success" | "error">("form");
   const [successStreamId, setSuccessStreamId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
   const [copiedStreamId, setCopiedStreamId] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => {
+    const initialNow = Date.now();
+    return {
     streamName: "",
-    tokenAddress: BSC_TOKENS[0].address,
+    tokenAddress: TOKENS[0].address,
     recipient: "",
     amount: "",
-    startDate: formatDateForInput(new Date()),
-    endDate: formatDateForInput(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000)),
+    startDate: formatDateForInput(new Date(initialNow)),
+    endDate: formatDateForInput(new Date(initialNow + 90 * 24 * 60 * 60 * 1000)),
     claimPageTitle: "",
     claimPageSubtitle: "",
+    };
   });
 
-  const sendStream = useSendStream();
-  const yieldEligibility: undefined = undefined;
+  const { data: tokenDecimals } = useTokenDecimals(formData.tokenAddress as `0x${string}`);
+  const [usePrivacy, setUsePrivacy] = useState(false);
+  const sendStream = useCreateStream();
 
   const handleNext = async () => {
     // Validation for details step
@@ -116,14 +121,17 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
       const startTimestamp = new Date(formData.startDate).getTime() / 1000;
       const endTimestamp = new Date(formData.endDate).getTime() / 1000;
       const durationSeconds = Math.floor(endTimestamp - startTimestamp);
-      const selectedToken = BSC_TOKENS.find(t => t.address === formData.tokenAddress);
+      const selectedToken = TOKENS.find(t => t.address === formData.tokenAddress);
 
       sendStream.mutateAsync({
         tokenAddress: formData.tokenAddress as `0x${string}`,
         recipientAddress: formData.recipient as `0x${string}`,
         totalAmount: formData.amount,
-        tokenDecimals: selectedToken?.decimals ?? 18,
+        tokenDecimals: tokenDecimals ?? 18,
         durationSeconds,
+        usePrivacy,
+        tokenSymbol: selectedToken?.symbol ?? "TOKEN",
+        startTimestamp: Math.floor(startTimestamp),
       }).then((result) => {
         setSuccessStreamId(result.txHash);
         setWizardState("success");
@@ -154,7 +162,7 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
     setTimeout(() => setCopiedStreamId(false), 2000);
   };
 
-  const selectedToken = BSC_TOKENS.find((t) => t.address === formData.tokenAddress);
+  const selectedToken = TOKENS.find((t) => t.address === formData.tokenAddress);
 
   return (
     <div
@@ -289,28 +297,20 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
                       <Label className="lowercase mb-2">token</Label>
                       <Select
                         value={formData.tokenAddress}
-                        onValueChange={(value) => setFormData({ ...formData, tokenAddress: value })}
+                        onValueChange={(value) => setFormData({ ...formData, tokenAddress: value as `0x${string}` })}
                       >
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="select a token" />
                         </SelectTrigger>
                         <SelectContent>
-                          {BSC_TOKENS.map((token) => {
-                            const eligibility = yieldEligibility?.tokens.find(t => t.address.toLowerCase() === token.address.toLowerCase());
-                            return (
-                              <SelectItem key={token.address} value={token.address}>
-                                <span className="lowercase">{token.symbol}</span>
-                                <span className="text-xs text-muted-foreground ml-2 font-mono">
-                                  {token.address.slice(0, 6)}...{token.address.slice(-4)}
-                                </span>
-                                {eligibility?.yieldAvailable && (
-                                  <Badge variant="secondary" className="ml-2 text-[10px] py-0 px-1.5 bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                                    yield eligible
-                                  </Badge>
-                                )}
-                              </SelectItem>
-                            );
-                          })}
+                          {TOKENS.map((token) => (
+                            <SelectItem key={token.address} value={token.address}>
+                              <span className="lowercase">{token.symbol}</span>
+                              <span className="text-xs text-muted-foreground ml-2 font-mono">
+                                {token.address.slice(0, 6)}...{token.address.slice(-4)}
+                              </span>
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -366,6 +366,19 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
                           onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                         />
                       </div>
+                    </div>
+
+                    {/* Privacy Toggle */}
+                    <div className="pt-1 border-t border-border">
+                      <PrivacyToggle
+                        enabled={usePrivacy}
+                        onToggle={setUsePrivacy}
+                      />
+                      {usePrivacy && (
+                        <p className="mt-2 text-[11px] text-amber-400/70 leading-relaxed">
+                          this stream will use your stealth wallet and zwUSDC
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -425,6 +438,12 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
                           {formData.startDate} to {formData.endDate}
                         </span>
                       </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground lowercase">mode</span>
+                        <span className={usePrivacy ? "text-amber-400" : ""}>
+                          {usePrivacy ? "private (stealth wallet)" : "public"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -461,51 +480,35 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
 function StreamDetailDrawer({
   stream,
   open,
-  onOpenChange
+  onOpenChange,
+  onViewDetails,
 }: {
-  stream: any | null;
+  stream: LocalStream | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onViewDetails: (id: string) => void;
 }) {
-  const streamId = stream?.id ?? 0;
-  void streamId;
-  const pauseStream: any = { mutate: () => {} };
-  const resumeStream: any = { mutate: () => {} };
-  const cancelStream: any = { mutate: () => {} };
+  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
 
   if (!stream) return null;
 
-  const progress = ((stream.totalDistributed || 0) / (stream.totalAmount || 1)) * 100;
+  const duration = stream.endTimestamp - stream.startTimestamp;
+  const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
+  const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+  const streamed = parseFloat(stream.totalAmount) * (progress / 100);
+  const isActive = stream.endTimestamp > nowSecs;
+  const monthlyRate = parseFloat(stream.totalAmount) / Math.max(1, duration / (86400 * 30));
 
   const handleCopyAddress = (address: string) => {
     navigator.clipboard.writeText(address);
     toast.success("address copied to clipboard");
   };
 
-  const handleCopyClaimPage = () => {
-    if (stream?.claimPageUrl) {
-      navigator.clipboard.writeText(stream.claimPageUrl);
-      toast.success("claim page url copied to clipboard");
-    }
-  };
-
-  const handlePauseResume = () => {
-    if (stream.status === "ACTIVE") {
-      pauseStream.mutate();
-    } else {
-      resumeStream.mutate();
-    }
-  };
-
-  const handleStop = () => {
-    cancelStream.mutate();
-  };
-
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle className="lowercase">{stream.title}</DrawerTitle>
+          <DrawerTitle className="lowercase">{stream.tokenSymbol} stream</DrawerTitle>
           <DrawerDescription className="lowercase">
             payment details
           </DrawerDescription>
@@ -518,17 +521,13 @@ function StreamDetailDrawer({
               <div className="flex items-center gap-2 mb-3">
                 <div
                   className={`w-1.5 h-1.5 rounded-full ${
-                    stream.status === "ACTIVE"
+                    isActive
                       ? "bg-white/70 shadow-[0_0_8px_rgba(255,255,255,0.4)]"
                       : "bg-muted-foreground/40"
                   }`}
-                  style={
-                    stream.status === "ACTIVE"
-                      ? { animation: "breathe 4s ease-in-out infinite" }
-                      : undefined
-                  }
+                  style={isActive ? { animation: "breathe 4s ease-in-out infinite" } : undefined}
                 />
-                <span className="text-sm font-light lowercase">{stream.status}</span>
+                <span className="text-sm font-light lowercase">{isActive ? "active" : "completed"}</span>
               </div>
 
               <div className="h-0.5 bg-muted rounded-full overflow-hidden mb-2">
@@ -536,7 +535,7 @@ function StreamDetailDrawer({
                   className="h-full bg-foreground/50 relative"
                   style={{ width: `${progress}%` }}
                 >
-                  {stream.status === "ACTIVE" && (
+                  {isActive && (
                     <div
                       className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
                       style={{ animation: "flow 2s infinite" }}
@@ -545,7 +544,7 @@ function StreamDetailDrawer({
                 </div>
               </div>
               <div className="text-xs text-muted-foreground lowercase">
-                {stream.totalDistributed.toLocaleString()} / {stream.totalAmount.toLocaleString()} ({progress.toFixed(0)}%)
+                {streamed.toFixed(2)} / {stream.totalAmount} {stream.tokenSymbol} ({progress.toFixed(0)}%)
               </div>
             </div>
 
@@ -555,24 +554,24 @@ function StreamDetailDrawer({
                 <div>
                   <div className="text-xs text-muted-foreground lowercase mb-1">sending</div>
                   <div className="text-base font-light font-mono">
-                    {((stream.amountPerPeriod / stream.periodDuration) * 86400 * 30).toFixed(2)}
+                    {monthlyRate.toFixed(2)}
                     <span className="text-xs text-muted-foreground ml-1">/mo</span>
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground lowercase mb-1">asset</div>
-                  <div className="text-base font-light font-mono">{stream.assetId}</div>
+                  <div className="text-base font-light font-mono">{stream.tokenSymbol}</div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground lowercase mb-1">start date</div>
                   <div className="text-base font-light lowercase">
-                    {new Date(stream.startDate).toLocaleDateString()}
+                    {new Date(stream.startTimestamp * 1000).toLocaleDateString()}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground lowercase mb-1">end date</div>
                   <div className="text-base font-light lowercase">
-                    {new Date(stream.endDate).toLocaleDateString()}
+                    {new Date(stream.endTimestamp * 1000).toLocaleDateString()}
                   </div>
                 </div>
               </div>
@@ -605,33 +604,13 @@ function StreamDetailDrawer({
         </div>
 
         <DrawerFooter>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              className="flex-1 lowercase"
-              onClick={handlePauseResume}
-            >
-              {stream.status === "ACTIVE" ? (
-                <>
-                  <StopCircle className="w-4 h-4 mr-2" />
-                  pause payment
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  resume payment
-                </>
-              )}
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 lowercase text-destructive hover:text-destructive"
-              onClick={handleStop}
-            >
-              <StopCircle className="w-4 h-4 mr-2" />
-              stop payment
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="w-full lowercase"
+            onClick={() => onViewDetails(stream.id)}
+          >
+            view full details
+          </Button>
         </DrawerFooter>
       </DrawerContent>
     </Drawer>
@@ -639,13 +618,15 @@ function StreamDetailDrawer({
 }
 
 function StreamsPage() {
+  const navigate = useNavigate();
+  const { chainId } = useChain();
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [selectedStream, setSelectedStream] = useState<any | null>(null);
+  const [selectedStream, setSelectedStream] = useState<LocalStream | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const streams: any[] = [];
-  const isLoading = false;
+  const streams = useMemo(() => getStreams(chainId), [chainId]);
+  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
 
-  const handleStreamClick = (stream: any) => {
+  const handleStreamClick = (stream: LocalStream) => {
     setSelectedStream(stream);
     setDrawerOpen(true);
   };
@@ -678,46 +659,41 @@ function StreamsPage() {
 
       {/* Stream Collections */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {isLoading ? (
-          <div className="col-span-full text-center py-12 text-muted-foreground lowercase">
-            loading payments...
-          </div>
-        ) : streams.length === 0 ? (
+        {streams.length === 0 ? (
           <div className="col-span-full text-center py-12 text-muted-foreground lowercase">
             no payments yet. send your first payment to get started.
           </div>
         ) : (
-          streams.map((collection) => {
-            const progress = ((collection.totalDistributed || 0) / (collection.totalAmount || 1)) * 100;
-            const streamRate = collection.amountPerPeriod / collection.periodDuration;
+          streams.map((stream) => {
+            const duration = stream.endTimestamp - stream.startTimestamp;
+            const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
+            const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+            const streamed = parseFloat(stream.totalAmount) * (progress / 100);
+            const isActive = stream.endTimestamp > nowSecs;
+            const monthlyRate = parseFloat(stream.totalAmount) / Math.max(1, duration / (86400 * 30));
+
             return (
               <Card
-                key={collection.id}
-                onClick={() => handleStreamClick(collection)}
+                key={stream.id}
+                onClick={() => handleStreamClick(stream)}
                 className="group relative p-6 border border-border hover:border-primary/30 transition-all cursor-pointer"
               >
-                {/* Collection Header */}
+                {/* Header */}
                 <div className="mb-6">
                   <h3 className="text-lg font-light text-foreground mb-3 lowercase">
-                    {collection.title}
+                    {stream.tokenSymbol} stream
                   </h3>
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-1.5 h-1.5 rounded-full ${
-                        collection.status === "ACTIVE"
+                        isActive
                           ? "bg-white/70 shadow-[0_0_8px_rgba(255,255,255,0.4)]"
                           : "bg-muted-foreground/40"
                       }`}
-                      style={
-                        collection.status === "ACTIVE"
-                          ? {
-                              animation: "breathe 4s ease-in-out infinite",
-                            }
-                          : undefined
-                      }
+                      style={isActive ? { animation: "breathe 4s ease-in-out infinite" } : undefined}
                     />
                     <span className="text-xs text-muted-foreground lowercase">
-                      {collection.recipientAddress.slice(0, 6)}...{collection.recipientAddress.slice(-4)}
+                      {stream.recipientAddress.slice(0, 6)}...{stream.recipientAddress.slice(-4)}
                     </span>
                   </div>
                 </div>
@@ -727,13 +703,13 @@ function StreamsPage() {
                   <div>
                     <div className="text-xs text-muted-foreground lowercase mb-1">delivered</div>
                     <div className="text-lg font-light font-mono">
-                      {collection.totalDistributed.toLocaleString()}
+                      {streamed.toFixed(2)}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-muted-foreground lowercase mb-1">rate</div>
                     <div className="text-lg font-light font-mono">
-                      {(streamRate * 86400 * 30).toFixed(2)}
+                      {monthlyRate.toFixed(2)}
                       <span className="text-xs text-muted-foreground ml-1">/mo</span>
                     </div>
                   </div>
@@ -746,12 +722,10 @@ function StreamsPage() {
                       className="h-full bg-foreground/50 relative"
                       style={{ width: `${progress}%` }}
                     >
-                      {collection.status === "ACTIVE" && (
+                      {isActive && (
                         <div
                           className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                          style={{
-                            animation: "flow 2s infinite",
-                          }}
+                          style={{ animation: "flow 2s infinite" }}
                         />
                       )}
                     </div>
@@ -772,6 +746,10 @@ function StreamsPage() {
         stream={selectedStream}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        onViewDetails={(id) => {
+          setDrawerOpen(false);
+          navigate({ to: "/streams/$streamId", params: { streamId: id } });
+        }}
       />
 
       <style>{`

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { Activity, Target, TrendingUp, Sparkles } from "lucide-react";
+import { Activity, TrendingUp, Sparkles } from "lucide-react";
 
 export function BottomNav() {
   const location = useLocation();
@@ -34,9 +34,9 @@ export function BottomNav() {
           <span className="text-xs">Studio</span>
         </Link>
         <Link
-          to="/leaderboard"
+          to="/history"
           className={`flex flex-col items-center gap-1 transition-colors ${
-            isActive("/leaderboard") ? "text-cyan-400" : "text-slate-400 hover:text-white"
+            isActive("/history") ? "text-cyan-400" : "text-slate-400 hover:text-white"
           }`}
         >
           <TrendingUp className="w-5 h-5" />

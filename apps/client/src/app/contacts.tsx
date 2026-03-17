@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { UserPlus, Trash2, Copy, Mail } from "lucide-react";
-import { Card } from "@/components/card";
-import { Button } from "@/components/button";
-import { Input } from "@/components/input";
-import { Label } from "@/components/label";
-import { Badge } from "@/components/badge";
+import { Card } from "@/components/molecules/card";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
+import { Badge } from "@/components/atoms/badge";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-} from "@/components/dialog";
+} from "@/components/molecules/dialog";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/contacts")({
@@ -44,17 +44,13 @@ function saveContacts(contacts: Contact[]) {
 }
 
 function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>(() => loadContacts());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newWallet, setNewWallet] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isResolving, setIsResolving] = useState(false);
-
-  useEffect(() => {
-    setContacts(loadContacts());
-  }, []);
+  const [isResolving] = useState(false);
 
   const handleAddContact = useCallback(async () => {
     if (!newName.trim()) {
