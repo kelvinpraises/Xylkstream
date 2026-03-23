@@ -29,6 +29,10 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL }}
+            VITE_PRIVY_APP_ID=${{ secrets.VITE_PRIVY_APP_ID }}
+            VITE_DEFAULT_CHAIN_ID=${{ secrets.VITE_DEFAULT_CHAIN_ID }}
 
       - name: Deploy to server
         uses: appleboy/ssh-action@v1
