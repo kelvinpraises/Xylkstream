@@ -21,7 +21,7 @@ COPY apps/server/src ./server/src
 # Client
 COPY apps/client/package.json apps/client/package-lock.json ./apps/client/
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
-RUN cd apps/client && npm ci && npm install --no-save @rollup/rollup-linux-x64-gnu lightningcss-linux-x64-gnu 2>/dev/null; npm install --no-save @rollup/rollup-linux-arm64-gnu lightningcss-linux-arm64-gnu 2>/dev/null; true
+RUN cd apps/client && rm -f package-lock.json && npm install
 COPY apps/client ./apps/client
 RUN cd apps/client && npx vite build
 
