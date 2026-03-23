@@ -23,7 +23,7 @@ COPY apps/client/package.json apps/client/package-lock.json ./apps/client/
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN cd apps/client && rm -f package-lock.json && npm install
 COPY apps/client ./apps/client
-RUN cd apps/client && npx vite build
+RUN cd apps/client && NODE_OPTIONS="--max-old-space-size=768" npx vite build
 
 EXPOSE 4848
 EXPOSE 3000
