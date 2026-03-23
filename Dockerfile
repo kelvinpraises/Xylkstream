@@ -15,7 +15,7 @@ COPY apps/server/src ./server/src
 
 # Client (delete lockfile so npm resolves platform-correct native binaries)
 COPY apps/client/package.json apps/client/package-lock.json ./apps/client/
-RUN cd apps/client && npm ci --force
+RUN cd apps/client && npm ci --force && npm install --no-save @rollup/rollup-linux-x64-gnu @esbuild/linux-x64 lightningcss-linux-x64-gnu @tailwindcss/oxide-linux-x64-gnu 2>/dev/null; true
 COPY apps/client ./apps/client
 RUN cd apps/client && npx vite build
 
