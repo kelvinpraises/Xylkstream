@@ -10,7 +10,7 @@ RUN cd apps/packages/wdk-4337 && npm ci
 
 # Server
 COPY apps/server/package.json apps/server/package-lock.json ./server/
-RUN cd server && npm ci --omit=dev
+RUN cd server && npm ci --omit=dev --force && npm install --no-save @libsql/linux-x64-gnu 2>/dev/null; true
 COPY apps/server/src ./server/src
 
 # Client (delete lockfile so npm resolves platform-correct native binaries)
@@ -19,8 +19,9 @@ RUN cd apps/client && npm ci --force && npm install --no-save @rollup/rollup-lin
 RUN ln -s /app/apps/client/node_modules/vite-plugin-node-polyfills /app/apps/packages/wdk-4337/node_modules/vite-plugin-node-polyfills
 COPY apps/client ./apps/client
 RUN cd apps/client && npx vite build
+RUN npm install -g serve
 
 EXPOSE 4848
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd /app/server && node_modules/.bin/tsx src/server.ts & cd /app/apps/client && npx vite preview --outDir dist --port 3000 --host & wait"]
+CMD ["sh", "-c", "cd /app/server && node_modules/.bin/tsx src/server.ts & serve -s /app/apps/client/dist -l 3000 & wait"]
