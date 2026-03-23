@@ -1,5 +1,5 @@
 **/node_modules
-**/dist
+apps/client/dist
 **/.env
 **/*.log
 apps/contracts

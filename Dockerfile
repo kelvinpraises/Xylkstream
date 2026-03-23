@@ -1,19 +1,20 @@
 FROM node:22-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # wdk-4337 local package
 COPY apps/packages/wdk-4337 ./apps/packages/wdk-4337
-RUN cd apps/packages/wdk-4337 && npm ci --ignore-scripts
+RUN cd apps/packages/wdk-4337 && npm ci
 
 # Server
 COPY apps/server/package.json apps/server/package-lock.json ./server/
-RUN cd server && npm ci --omit=dev --ignore-scripts
+RUN cd server && npm ci --omit=dev
 COPY apps/server/src ./server/src
 
 # Client (delete lockfile so npm resolves platform-correct native binaries)
 COPY apps/client/package.json apps/client/package-lock.json ./apps/client/
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN cd apps/client && rm -f package-lock.json && npm install
 COPY apps/client ./apps/client
 RUN cd apps/client && npx vite build
