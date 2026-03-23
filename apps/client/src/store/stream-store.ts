@@ -1,5 +1,9 @@
 // stream-store.ts — localStorage-backed store for created streams (Drips has no on-chain enumeration)
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import { useChain } from "@/providers/chain-provider";
+
 const STORAGE_PREFIX = "xylkstream_streams";
 
 function storageKey(chainId: number): string {
@@ -18,7 +22,10 @@ export interface LocalStream {
   amtPerSec: string;
   startTimestamp: number;
   endTimestamp: number;
+  dripsStreamId?: number;
   isPrivate: boolean;
+  walletIndex?: number;
+  walletAddress?: string;
   txHash?: string;
   createdAt: string;
 }
@@ -61,4 +68,24 @@ export function clearStreams(chainId: number): void {
   } catch {
     // ignore
   }
+}
+
+// --- React Query hook ---
+
+export function useLocalStreams() {
+  const { chainId } = useChain();
+  const queryClient = useQueryClient();
+
+  const { data: streams = [] } = useQuery({
+    queryKey: ["localStreams", chainId],
+    queryFn: () => getStreams(chainId),
+    staleTime: Infinity, // only refetch on manual invalidation
+  });
+
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: ["localStreams"] }),
+    [queryClient],
+  );
+
+  return { streams, invalidate };
 }

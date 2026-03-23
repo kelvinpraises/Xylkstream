@@ -16,12 +16,20 @@
     "test:evm": "tsx tests/evm-protocol.test.ts",
     "test:plugin:evm": "tsx tests/evm-plugin.test.ts",
     "test:lifecycle:evm": "tsx tests/evm-full-lifecycle.test.ts",
-    "test:unit": "vitest run"
+    "test:unit": "vitest run --config vitest.config.ts",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:yieldbox": "vitest run --config vitest.integration.config.ts tests/integration/services/yieldbox"
   },
   "engines": {
     "node": ">=20.9.0"
   },
   "dependencies": {
+    "@ethereumjs/common": "^10.1.1",
+    "@ethereumjs/evm": "^10.1.1",
+    "@ethereumjs/statemanager": "^10.1.1",
+    "@ethereumjs/tx": "^10.1.1",
+    "@ethereumjs/util": "^10.1.1",
+    "@ethereumjs/vm": "^10.1.1",
     "@layr-labs/ecloud-sdk": "^0.3.3",
     "@libsql/client": "^0.17.0",
     "@libsql/kysely-libsql": "^0.4.1",
@@ -45,6 +53,7 @@
     "ky": "^1.14.3",
     "kysely": "^0.28.10",
     "node-cron": "^4.2.1",
+    "solc": "^0.8.34",
     "tsx": "^4.21.0",
     "viem": "^2.45.0",
     "workerd": "^1.20260203.0",
@@ -61,6 +70,7 @@
     "@types/supertest": "^7.2.0",
     "@types/yargs": "^17.0.35",
     "supertest": "^7.2.2",
+    "tweetnacl": "^1.0.3",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   }

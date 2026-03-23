@@ -25,13 +25,13 @@ export function BottomNav() {
           <span className="text-xs">Dashboard</span>
         </Link>
         <Link
-          to="/studio"
+          to="/streams"
           className={`flex flex-col items-center gap-1 transition-colors ${
-            isActive("/studio") ? "text-cyan-400" : "text-slate-400 hover:text-white"
+            isActive("/streams") ? "text-cyan-400" : "text-slate-400 hover:text-white"
           }`}
         >
           <Sparkles className="w-5 h-5" />
-          <span className="text-xs">Studio</span>
+          <span className="text-xs">Payments</span>
         </Link>
         <Link
           to="/history"

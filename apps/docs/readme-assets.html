@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Xylkstream README Assets</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #080810; color: #fff; font-family: 'Inter', sans-serif; padding: 40px 48px; }
+  .wordmark { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 300; font-size: 44px; letter-spacing: -2px; background: linear-gradient(135deg, #fef3c7, #fff 45%, #fecdd3); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+  .sub { font-size: 14px; color: rgba(148,163,184,0.45); margin-top: 6px; margin-bottom: 48px; }
+  #stack { display: flex; flex-direction: column; gap: 24px; margin-bottom: 56px; }
+  .card { border: 1px solid rgba(148,163,184,0.08); border-radius: 14px; overflow: hidden; background: #0d0d14; transition: border-color .2s; }
+  .card:hover { border-color: rgba(251,191,36,0.15); }
+  .card canvas { width: 100%; height: auto; display: block; }
+  .card-foot { padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(148,163,184,0.06); }
+  .card-name { font-size: 12px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: rgba(148,163,184,0.4); }
+  .card-size { font-size: 11px; color: rgba(148,163,184,0.22); }
+  #dl-btn { display: flex; align-items: center; gap: 10px; padding: 16px 40px; border-radius: 100px; border: 1px solid rgba(251,191,36,0.25); background: rgba(251,191,36,0.05); color: #fbbf24; font: 600 16px 'Inter',sans-serif; cursor: pointer; transition: all .25s; letter-spacing: -.2px; }
+  #dl-btn:hover { border-color: rgba(251,191,36,0.45); background: rgba(251,191,36,0.09); transform: translateY(-1px); }
+  #dl-btn.done { border-color: rgba(74,222,128,0.35); color: #4ade80; background: rgba(74,222,128,0.05); }
+  .center { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #status { font-size: 13px; color: rgba(148,163,184,0.4); min-height: 18px; }
+  .note { font-size: 12px; color: rgba(148,163,184,0.2); }
+</style>
+</head>
+<body>
+
+<div class="wordmark">Xylkstream</div>
+<p class="sub">README visual assets · 3× render scale · retina · pick a folder, all PNGs save there instantly</p>
+
+<div id="stack"></div>
+
+<div class="center">
+  <button id="dl-btn" onclick="saveAll()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Save all to folder
+  </button>
+  <p id="status"></p>
+  <p class="note">Saves directly to your chosen folder as individual PNGs · ready to drop into any UI</p>
+</div>
+
+<script>
+// ─── scale & theme ────────────────────────────────────────
+const S = 3;
+const C = {
+  bg:          '#0d0d14',
+  amber:       '#fbbf24',
+  rose:        '#fb7185',
+  violet:      '#a78bfa',
+  teal:        '#2dd4bf',
+  green:       '#4ade80',
+  white:       'rgba(255,255,255,0.85)',
+  dim:         'rgba(148,163,184,0.75)',
+  dimmer:      'rgba(148,163,184,0.52)',
+  panelFill:   'rgba(255,255,255,0.026)',
+  panelStroke: 'rgba(148,163,184,0.14)',
+};
+
+// ─── canvas factory ───────────────────────────────────────
+function mkCanvas(W, H) {
+  const c = document.createElement('canvas');
+  c.width = W * S; c.height = H * S;
+  const x = c.getContext('2d');
+  x.scale(S, S);
+  return { c, x };
+}
+
+// ─── shared primitives ────────────────────────────────────
+function aurora(x, W, H) {
+  x.fillStyle = C.bg; x.fillRect(0, 0, W, H);
+  [[-0.05,-0.05,0.44,'rgba(251,191,36,0.09)'],
+   [ 0.74, 0.06,0.52,'rgba(244,63,94,0.07)'],
+   [ 0.16, 0.82,0.56,'rgba(124,58,237,0.08)']
+  ].forEach(([cx,cy,r,col]) => {
+    const g = x.createRadialGradient(cx*W,cy*H,0, cx*W,cy*H,r*W);
+    g.addColorStop(0, col); g.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+  });
+}
+
+function rrect(x, rx, ry, rw, rh, r=10) {
+  x.beginPath();
+  x.moveTo(rx+r, ry);
+  x.lineTo(rx+rw-r, ry); x.quadraticCurveTo(rx+rw, ry,   rx+rw, ry+r);
+  x.lineTo(rx+rw, ry+rh-r); x.quadraticCurveTo(rx+rw, ry+rh, rx+rw-r, ry+rh);
+  x.lineTo(rx+r, ry+rh); x.quadraticCurveTo(rx,    ry+rh, rx,    ry+rh-r);
+  x.lineTo(rx, ry+r); x.quadraticCurveTo(rx, ry, rx+r, ry);
+  x.closePath();
+}
+
+function panel(x, bx, by, bw, bh, stroke, fill, r=10) {
+  stroke = stroke || C.panelStroke; fill = fill || C.panelFill;
+  rrect(x, bx, by, bw, bh, r);
+  x.fillStyle = fill; x.fill();
+  x.strokeStyle = stroke; x.lineWidth = 0.75; x.stroke();
+}
+
+function T(x, t, cx, y, color, sz, weight, align) {
+  color  = color  || C.white;
+  sz     = sz     || 14;
+  weight = weight || '700';
+  align  = align  || 'center';
+  x.save(); x.font = `${weight} ${sz}px Inter,sans-serif`;
+  x.fillStyle = color; x.textAlign = align; x.fillText(t, cx, y);
+  x.restore();
+}
+
+function wrapT(x, text, cx, cy, maxW, sz, weight, color, lh) {
+  lh = lh || 1.55;
+  x.save(); x.font = `${weight} ${sz}px Inter,sans-serif`;
+  x.fillStyle = color; x.textAlign = 'center';
+  const words = text.split(' '); let line = ''; const lines = [];
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (x.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  lines.push(line);
+  const th = lines.length * sz * lh;
+  lines.forEach((l, i) => x.fillText(l, cx, cy - th/2 + sz/2 + i*sz*lh));
+  x.restore();
+}
+
+function arrowLine(x, x1, y1, x2, y2, col, dash) {
+  col  = col  || C.dimmer;
+  dash = dash || [];
+  const a = Math.atan2(y2-y1, x2-x1);
+  x.save(); x.strokeStyle = col; x.lineWidth = 1.4; x.lineCap = 'round';
+  x.setLineDash(dash); x.beginPath(); x.moveTo(x1,y1); x.lineTo(x2,y2); x.stroke(); x.setLineDash([]);
+  x.fillStyle = col; x.beginPath(); x.moveTo(x2,y2);
+  x.lineTo(x2 - 9*Math.cos(a-.42), y2 - 9*Math.sin(a-.42));
+  x.lineTo(x2 - 9*Math.cos(a+.42), y2 - 9*Math.sin(a+.42));
+  x.closePath(); x.fill(); x.restore();
+}
+const aH = (x,x1,y,x2,c)  => arrowLine(x, x1, y,  x2, y,  c);
+const aV = (x,cx,y1,y2,c) => arrowLine(x, cx, y1, cx, y2, c);
+
+function pillTag(x, cx, cy, text, textCol, stroke, fill) {
+  const w = 154, h = 21;
+  rrect(x, cx-w/2, cy-h/2, w, h, 5);
+  x.fillStyle = fill; x.fill(); x.strokeStyle = stroke; x.lineWidth = 0.7; x.stroke();
+  T(x, text.toUpperCase(), cx, cy+4, textCol, 9, '600');
+}
+
+// ─── watermark ────────────────────────────────────────────
+function watermark(x, W, H) {
+  x.save();
+  x.font = '300 italic 13px "Cormorant Garamond", Georgia, serif';
+  const g = x.createLinearGradient(W-130, H-20, W-14, H-20);
+  g.addColorStop(0, 'rgba(254,243,199,0.13)');
+  g.addColorStop(1, 'rgba(255,205,211,0.13)');
+  x.fillStyle = g;
+  x.textAlign = 'right';
+  x.fillText('Xylkstream', W - 14, H - 10);
+  x.restore();
+}
+
+// ─── diagram definitions ──────────────────────────────────
+const DIAGRAMS = [
+
+  { id:'core-idea', W:900, H:330, label:'Core Idea Flow',
+    draw(x, W, H) {
+      aurora(x, W, H);
+
+      panel(x, 20, 122, 138, 70);
+      T(x, 'Raw USDC', 89, 148); T(x, 'Public', 89, 165, C.dim, 11, '400');
+      aH(x, 158, 157, 224, C.amber+'bb');
+      T(x, 'deposit()', 191, 147, C.amber+'cc', 11, '600');
+
+      rrect(x, 228, 30, 444, 258, 12);
+      x.fillStyle = 'rgba(167,139,250,0.04)'; x.fill();
+      x.strokeStyle = 'rgba(167,139,250,0.3)'; x.lineWidth = 0.85;
+      x.setLineDash([6,3]); x.stroke(); x.setLineDash([]);
+
+      x.save(); x.font = '300 italic 30px "Cormorant Garamond",Georgia,serif';
+      const g = x.createLinearGradient(320,58,568,58);
+      g.addColorStop(0,'#c4b5fd'); g.addColorStop(1,'#a78bfa');
+      x.fillStyle = g; x.textAlign = 'center'; x.fillText('zwUSDC', 450, 66); x.restore();
+      T(x, 'everything inside is private', 450, 84, 'rgba(167,139,250,0.42)', 10, '600');
+
+      [
+        ['remint()',  'break sender-receiver link'],
+        ['stream()',  'continuous private payment'],
+        ['split()',   'private revenue sharing'],
+        ['collect()', 'private claim'],
+        ['yield()',   'capital grows in transit'],
+        ['give()',    'private one-time transfer'],
+      ].forEach(([name, sub], i) => {
+        const bx = 242+(i%3)*140, by = 100+Math.floor(i/3)*96, bw = 130, bh = 64;
+        panel(x, bx, by, bw, bh, 'rgba(167,139,250,0.17)', 'rgba(167,139,250,0.045)', 7);
+        x.save(); x.font = "600 11px 'Courier New',monospace";
+        x.fillStyle = 'rgba(167,139,250,0.82)'; x.textAlign = 'center'; x.fillText(name, bx+bw/2, by+20); x.restore();
+        wrapT(x, sub, bx+bw/2, by+46, bw-14, 10, '400', C.dimmer);
+      });
+
+      aH(x, 672, 157, 738, C.amber+'bb');
+      T(x, 'withdraw()', 705, 147, C.amber+'cc', 11, '600');
+      panel(x, 742, 122, 138, 70);
+      T(x, 'Raw USDC', 811, 148); T(x, 'Public', 811, 165, C.dim, 11, '400');
+      T(x, "Privacy is not a feature. It's the substrate. You turn it off when you withdraw.", 450, 308, C.dimmer, 12, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'stealth-wallet', W:900, H:260, label:'Stealth Wallet Derivation',
+    draw(x, W, H) {
+      aurora(x, W, H);
+
+      const steps = [
+        { l:'Privy Login',    s:'Email · Google\nFarcaster · Social',  col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+        { l:'signMessage',    s:'deterministic\nECDSA sig → sha256',   col:null },
+        { l:'WDK EOA',        s:'32-byte seed\nzero chain history',    col:C.violet, sk:'rgba(167,139,250,0.22)', fi:'rgba(167,139,250,0.05)' },
+        { l:'ERC-4337 Safe',  s:'EOA is owner\nno ETH, no identity',  col:C.violet, sk:'rgba(167,139,250,0.22)', fi:'rgba(167,139,250,0.05)' },
+        { l:'Paymaster',      s:'Gas sponsored\nno ETH link ever',     col:C.green,  sk:'rgba(74,222,128,0.22)',  fi:'rgba(74,222,128,0.04)' },
+      ];
+
+      const bw = 144, bh = 80, gap = 14;
+      const totalW = steps.length * bw + (steps.length-1) * gap;
+      const startX = (W - totalW) / 2;
+      const midY   = H/2 - bh/2;
+
+      steps.forEach((s, i) => {
+        const bx = startX + i*(bw+gap);
+        panel(x, bx, midY, bw, bh, s.sk || C.panelStroke, s.fi || C.panelFill, 8);
+        T(x, s.l, bx+bw/2, midY+22, s.col || C.white, 12, '700');
+        const lines = s.s.split('\n');
+        lines.forEach((ln, li) => T(x, ln, bx+bw/2, midY+40+li*15, C.dim, 10, '400'));
+        if (i < steps.length-1) aH(x, bx+bw+2, midY+bh/2, bx+bw+gap-2);
+      });
+
+      steps.forEach((_, i) => {
+        const bx = startX + i*(bw+gap);
+        T(x, String(i+1), bx+bw/2, midY-10, 'rgba(148,163,184,0.22)', 10, '600');
+      });
+
+      T(x, 'Same seed + same path = same address, every time, on any device. Different user = different address, guaranteed.', W/2, H-14, C.dimmer, 11, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'circles-flow', W:900, H:310, label:'Circles — E2E Encryption',
+    draw(x, W, H) {
+      aurora(x, W, H);
+
+      // ── row labels
+      T(x, 'CREATE', 42, 95, 'rgba(148,163,184,0.22)', 9, '600');
+      T(x, 'JOIN', 42, 215, 'rgba(148,163,184,0.22)', 9, '600');
+
+      const bw = 148, bh = 62, gap = 12;
+
+      // ── top row: sender creates circle
+      const topNodes = [
+        { l:'Sender',         s:'derives x25519\nkeypair via signMsg',  col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+        { l:'Invite Link',    s:'pubkey embedded\nin URL param',        col:null },
+        { l:'Recipient',      s:'clicks link\nbrand-new user ok',      col:null },
+      ];
+      const topStartX = 80;
+      topNodes.forEach((n, i) => {
+        const bx = topStartX + i*(bw+gap), by = 56;
+        panel(x, bx, by, bw, bh, n.sk || C.panelStroke, n.fi || C.panelFill, 7);
+        T(x, n.l, bx+bw/2, by+20, n.col || C.white, 12, '700');
+        n.s.split('\n').forEach((ln, li) => T(x, ln, bx+bw/2, by+36+li*14, C.dim, 10, '400'));
+        if (i < topNodes.length-1) aH(x, bx+bw+2, by+bh/2, bx+bw+gap-2);
+      });
+
+      // ── bottom row: recipient joins & sender streams
+      const botNodes = [
+        { l:'Pending Engine', s:'survives signup\nlocalStorage queue',  col:null },
+        { l:'nacl.box',       s:'encrypt stealth addr\nw/ sender pubkey', col:C.violet, sk:'rgba(167,139,250,0.22)', fi:'rgba(167,139,250,0.05)' },
+        { l:'Server',         s:'stores ciphertext\ncannot read it',    col:null },
+        { l:'Sender decrypts',s:'local only\nnever server-side',        col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+        { l:'setStreams()',    s:'streams to all\nstealth addresses',    col:C.green,  sk:'rgba(74,222,128,0.22)',  fi:'rgba(74,222,128,0.04)' },
+      ];
+      const botStartX = 80;
+      botNodes.forEach((n, i) => {
+        const bx = botStartX + i*(bw+gap), by = 178;
+        panel(x, bx, by, bw, bh, n.sk || C.panelStroke, n.fi || C.panelFill, 7);
+        T(x, n.l, bx+bw/2, by+20, n.col || C.white, 12, '700');
+        n.s.split('\n').forEach((ln, li) => T(x, ln, bx+bw/2, by+36+li*14, C.dim, 10, '400'));
+        if (i < botNodes.length-1) aH(x, bx+bw+2, by+bh/2, bx+bw+gap-2);
+      });
+
+      // ── vertical connector from row 1 → row 2
+      const joinX = topStartX + 2*(bw+gap) + bw/2;
+      aV(x, joinX, 118, 178);
+
+      T(x, 'The server stores only ciphertext. A subpoena reveals nothing. Decryption happens in your browser only.', W/2, H-10, C.dimmer, 11, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'zk-privacy', W:900, H:370, label:'ZK Privacy — ERC-8065 Shielding',
+    draw(x, W, H) {
+      aurora(x, W, H);
+
+      const steps = [
+        { n:'1', l:'Generate Secret',   s:'253-bit random\nclient-side only',           col:null,     sk:null,                       fi:null },
+        { n:'2', l:'Privacy Address',   s:'Poseidon(8065,\ntokenId, secret)',            col:C.violet, sk:'rgba(167,139,250,0.22)',   fi:'rgba(167,139,250,0.04)' },
+        { n:'3', l:'Deposit USDC',      s:'mint zwUSDC\nMerkle leaf inserted',          col:C.amber,  sk:'rgba(251,191,36,0.22)',    fi:'rgba(251,191,36,0.05)' },
+        { n:'4', l:'Rebuild Merkle',    s:'client fetches leaves\nverify root matches', col:null },
+        { n:'5', l:'Groth16 Proof',     s:'~2.6s in browser\nsecret stays private',    col:C.violet, sk:'rgba(167,139,250,0.22)',   fi:'rgba(167,139,250,0.04)' },
+        { n:'6', l:'remint()',          s:'fresh address\nno on-chain link',            col:C.green,  sk:'rgba(74,222,128,0.22)',    fi:'rgba(74,222,128,0.04)' },
+      ];
+
+      const bw = 132, bh = 72, gap = 10;
+      const totalW = steps.length * bw + (steps.length-1) * gap;
+      const startX = (W - totalW) / 2;
+      const midY = 80;
+
+      steps.forEach((s, i) => {
+        const bx = startX + i*(bw+gap);
+        panel(x, bx, midY, bw, bh, s.sk || C.panelStroke, s.fi || C.panelFill, 7);
+        T(x, s.n, bx+bw/2, midY-8, 'rgba(148,163,184,0.22)', 9, '600');
+        T(x, s.l, bx+bw/2, midY+22, s.col || C.white, 11, '700');
+        s.s.split('\n').forEach((ln, li) => T(x, ln, bx+bw/2, midY+38+li*14, C.dim, 10, '400'));
+        if (i < steps.length-1) aH(x, bx+bw+2, midY+bh/2, bx+bw+gap-2);
+      });
+
+      // ── inputs table
+      const tX = 60, tY = 182, tW = 780, tH = 148;
+      panel(x, tX, tY, tW, tH, 'rgba(148,163,184,0.09)', 'rgba(255,255,255,0.012)', 8);
+      T(x, 'GROTH16 PROOF INPUTS', tX + tW/2, tY+16, 'rgba(148,163,184,0.28)', 9, '600');
+
+      const cols = [
+        { label:'Input',         items:['root','nullifier','to (recipient)','remintAmount','secret','addr20','pathElements[20]'], x: tX+40 },
+        { label:'Visibility',    items:['Public','Public','Public','Public','Private ⚑','Private ⚑','Private ⚑'],               x: tX+280 },
+        { label:'What It Proves',items:['commitment in this tree','spending this deposit','funds land here','claiming this much','knows the secret','owns the privacy addr','Merkle inclusion path'], x: tX+490 },
+      ];
+
+      cols.forEach(col => {
+        T(x, col.label, col.x, tY+32, 'rgba(148,163,184,0.32)', 9, '600', 'left');
+        col.items.forEach((item, i) => {
+          const isPrivate = item.includes('⚑');
+          const color = isPrivate ? 'rgba(167,139,250,0.7)' : (i < 4 ? C.dim : C.dim);
+          T(x, item, col.x, tY+46+i*16, isPrivate ? 'rgba(167,139,250,0.65)' : C.dim, 10, isPrivate ? '600' : '400', 'left');
+        });
+      });
+
+      T(x, '⚑ Private inputs are never published on-chain — the ZK proof attests to their validity without revealing them.', W/2, tY+tH+18, C.dimmer, 11, '400');
+      T(x, 'Privacy overhead: ~$0.46 per stream. One-time cost. Ongoing streaming adds zero extra.', W/2, H-10, C.dimmer, 11, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'collection-pipeline', W:900, H:210, label:'Collection Pipeline',
+    draw(x, W, H) {
+      aurora(x, W, H);
+      const bw = 252, gap = 18, startX = (W - (3*bw + 2*gap)) / 2;
+      [
+        { name:'receiveStreams()', sub:'Updates internal accounting only. No tokens move.', tag:'Permissionless', hi:false },
+        { name:'split()',          sub:'Updates split accounting only. No tokens move.',    tag:'Permissionless', hi:false },
+        { name:'collect()',        sub:'Tokens actually move on-chain to the recipient.',   tag:'Recipient only', hi:true  },
+      ].forEach((s, i) => {
+        const bx = startX + i*(bw+gap), by = 24, bh = 116;
+        panel(x, bx, by, bw, bh,
+          s.hi ? 'rgba(251,191,36,0.32)' : C.panelStroke,
+          s.hi ? 'rgba(251,191,36,0.05)' : C.panelFill);
+        x.save(); x.font = "600 12px 'Courier New',monospace";
+        x.fillStyle = s.hi ? C.amber : 'rgba(148,163,184,0.75)'; x.textAlign = 'center';
+        x.fillText(s.name, bx+bw/2, by+24); x.restore();
+        wrapT(x, s.sub, bx+bw/2, by+66, bw-28, 11, '400', C.dim);
+        pillTag(x, bx+bw/2, by+101,
+          s.tag,
+          s.hi ? 'rgba(251,191,36,0.6)'  : 'rgba(148,163,184,0.32)',
+          s.hi ? 'rgba(251,191,36,0.18)' : 'rgba(148,163,184,0.1)',
+          s.hi ? 'rgba(251,191,36,0.04)' : 'rgba(255,255,255,0.015)');
+        if (i < 2) aH(x, bx+bw+2, by+bh/2, bx+bw+gap-2);
+      });
+      T(x, 'Anyone can trigger steps 1–2 for any account. Only the recipient can call step 3.', W/2, 185, C.dimmer, 12, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'agent-flow', W:900, H:240, label:'Agent Flow',
+    draw(x, W, H) {
+      aurora(x, W, H);
+      const nw = 148, nh = 80, gap = 14, startX = 20;
+      [
+        { l:'Agent',      s:'Proposes action via MCP',    col:null },
+        { l:'Server',     s:'Stores proposal as pending', col:null },
+        { l:'Dashboard',  s:'Shows proposal to you',      col:null },
+        { l:'You decide', s:'Approve or reject',          col:C.amber, sk:'rgba(251,191,36,0.3)', fi:'rgba(251,191,36,0.055)' },
+      ].forEach((n, i) => {
+        const bx = startX + i*(nw+gap), by = 72;
+        panel(x, bx, by, nw, nh, n.sk || C.panelStroke, n.fi || C.panelFill);
+        T(x, n.l, bx+nw/2, by+22, n.col || C.white, 13, '700');
+        wrapT(x, n.s, bx+nw/2, by+54, nw-16, 11, '400', C.dim);
+        if (i < 3) aH(x, bx+nw+2, by+nh/2, bx+nw+gap-2);
+      });
+
+      const rx = startX + 3*(nw+gap) + nw;
+      x.save(); x.strokeStyle='rgba(74,222,128,0.4)'; x.lineWidth=1.4; x.lineCap='round';
+      x.beginPath(); x.moveTo(rx, 90); x.lineTo(rx+48, 50); x.stroke(); x.restore();
+      arrowLine(x, rx+48, 50, rx+110, 50, 'rgba(74,222,128,0.4)');
+      T(x, 'Approve', rx+72, 43, 'rgba(74,222,128,0.55)', 10, '500');
+      panel(x, rx+114, 32, 88, 40, 'rgba(74,222,128,0.2)', 'rgba(74,222,128,0.04)', 7);
+      T(x, 'Browser executes', rx+158, 46, 'rgba(74,222,128,0.85)', 10, '700');
+      T(x, 'on-chain', rx+158, 60, 'rgba(74,222,128,0.5)', 10, '400');
+
+      x.save(); x.strokeStyle='rgba(251,113,133,0.35)'; x.lineWidth=1.4; x.lineCap='round';
+      x.beginPath(); x.moveTo(rx, 142); x.lineTo(rx+48, 182); x.stroke(); x.restore();
+      arrowLine(x, rx+48, 182, rx+110, 182, 'rgba(251,113,133,0.35)');
+      T(x, 'Reject', rx+72, 178, 'rgba(251,113,133,0.55)', 10, '500');
+      panel(x, rx+114, 163, 88, 40, 'rgba(251,113,133,0.18)', 'rgba(251,113,133,0.03)', 7);
+      T(x, 'Dismissed', rx+158, 187, 'rgba(251,113,133,0.75)', 11, '700');
+
+      T(x, 'The agent never touches your keys. No timeouts. No auto-execution.', W/2, 218, C.dimmer, 12, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'yieldbox-pipeline', W:900, H:260, label:'YieldBox — Agent-Written Strategies',
+    draw(x, W, H) {
+      aurora(x, W, H);
+
+      const steps = [
+        { l:'Agent',          s:'writes Solidity\nvia MCP tool',        col:null },
+        { l:'solc-js',        s:'compiles in-process\ndeterministic',   col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+        { l:'workerd v8',     s:'tests in isolate\nno network egress',  col:C.rose,   sk:'rgba(251,113,133,0.22)', fi:'rgba(251,113,133,0.04)' },
+        { l:'You approve',    s:'read reason\napprove or reject',       col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+        { l:'Browser deploys',s:'UserOp via Safe\nregisters w/ Yield', col:C.green,  sk:'rgba(74,222,128,0.22)',  fi:'rgba(74,222,128,0.04)' },
+      ];
+
+      const bw = 148, bh = 84, gap = 13;
+      const totalW = steps.length * bw + (steps.length-1) * gap;
+      const startX = (W - totalW) / 2;
+      const midY = H/2 - bh/2 - 10;
+
+      // trust boundary labels above
+      ['Agent\ntrust', 'Compiler\ntrust', 'Sandbox\ntrust', 'Human\ntrust', 'Chain\ntrust'].forEach((label, i) => {
+        const bx = startX + i*(bw+gap);
+        label.split('\n').forEach((ln, li) => T(x, ln, bx+bw/2, midY - 22 + li*13, 'rgba(148,163,184,0.18)', 9, '600'));
+      });
+
+      steps.forEach((s, i) => {
+        const bx = startX + i*(bw+gap);
+        panel(x, bx, midY, bw, bh, s.sk || C.panelStroke, s.fi || C.panelFill, 8);
+        T(x, s.l, bx+bw/2, midY+22, s.col || C.white, 12, '700');
+        s.s.split('\n').forEach((ln, li) => T(x, ln, bx+bw/2, midY+40+li*15, C.dim, 10, '400'));
+        if (i < steps.length-1) aH(x, bx+bw+2, midY+bh/2, bx+bw+gap-2);
+      });
+
+      T(x, 'Four trust boundaries. Agent wrote it. solc compiled it. v8 tested it. You approved it. Browser deployed it.', W/2, H-14, C.dimmer, 11, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'yield-loop', W:900, H:330, label:'Yield Loop',
+    draw(x, W, H) {
+      aurora(x, W, H);
+      [
+        { l:'Streaming Protocol', s:'Detects idle capital in transit',      bx:320, by:22,  bw:260, bh:64, col:null,     sk:null,                       fi:null },
+        { l:'YieldManager',       s:'Routes to active yield strategy',      bx:320, by:140, bw:260, bh:64, col:C.amber,  sk:'rgba(251,191,36,0.28)',    fi:'rgba(251,191,36,0.05)' },
+        { l:'IYieldStrategy',     s:'Plugin interface — 3 clean functions', bx:634, by:140, bw:216, bh:64, col:C.violet, sk:'rgba(167,139,250,0.25)',   fi:'rgba(167,139,250,0.05)' },
+        { l:'DeFi Pool',          s:'Uniswap V3, Aave, Compound…',          bx:634, by:254, bw:216, bh:64, col:C.teal,   sk:'rgba(45,212,191,0.22)',    fi:'rgba(45,212,191,0.045)' },
+      ].forEach(n => {
+        panel(x, n.bx, n.by, n.bw, n.bh, n.sk || C.panelStroke, n.fi || C.panelFill);
+        T(x, n.l, n.bx+n.bw/2, n.by+22, n.col || C.white, 13, '700');
+        wrapT(x, n.s, n.bx+n.bw/2, n.by+46, n.bw-20, 11, '400', C.dim);
+      });
+
+      aV(x, 450, 86, 140); T(x, 'idle capital detected', 508, 120, C.dimmer, 10, '400');
+      aH(x, 580, 172, 634); T(x, 'allocate', 607, 162, C.dimmer, 10, '400');
+      aV(x, 742, 204, 254); T(x, 'invest()', 762, 236, C.dimmer, 10, '400');
+
+      x.save(); x.strokeStyle='rgba(148,163,184,0.2)'; x.lineWidth=1.3;
+      x.setLineDash([5,3]); x.lineCap='round';
+      x.beginPath(); x.moveTo(634,286); x.bezierCurveTo(500,286,450,286,450,204); x.stroke();
+      x.setLineDash([]); x.restore();
+      aV(x, 450, 204, 140, 'rgba(148,163,184,0.2)');
+      T(x, 'principal + yield', 522, 278, C.dimmer, 10, '400');
+
+      x.save(); x.strokeStyle='rgba(251,191,36,0.2)'; x.lineWidth=1.1;
+      x.setLineDash([4,3]); x.lineCap='round';
+      x.beginPath(); x.moveTo(320,172); x.bezierCurveTo(220,172,220,54,320,54); x.stroke();
+      x.setLineDash([]); x.restore();
+      x.save(); x.translate(196, 114); x.rotate(-Math.PI/2);
+      T(x, 'yield flows back', 0, 0, 'rgba(251,191,36,0.4)', 10, '500');
+      x.restore();
+
+      T(x, 'Capital earns while in transit. Strategy is hot-swappable without redeploying.', W/2, 308, C.dimmer, 12, '400');
+      watermark(x, W, H);
+    }
+  },
+
+  { id:'architecture', W:900, H:430, label:'Architecture',
+    draw(x, W, H) {
+      aurora(x, W, H);
+      const cw = 156, cgap = 9, ch = 70;
+      const cStartX = (W - (5*cw + 4*cgap)) / 2;
+
+      [
+        { name:'CLIENT', y:16, h:108, chips:[
+          { l:'React 19',       s:'TanStack Router · Vite · Tailwind 4',   col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+          { l:'Privy + WDK',    s:'Social login · ERC-4337 stealth',       col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+          { l:'Privacy Engine', s:'snarkjs · Poseidon · Merkle tree',      col:C.violet, sk:'rgba(167,139,250,0.2)', fi:'rgba(167,139,250,0.045)' },
+          { l:'Radix UI',       s:'Components · Framer Motion',            col:null },
+          { l:'TanStack Query', s:'Server state · Caching',                col:null },
+        ]},
+        { name:'SERVER', y:150, h:108, chips:[
+          { l:'Express 5',        s:'TypeScript · ESM · Viem',             col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+          { l:'Kysely + Turso',   s:'Type-safe SQL · Edge SQLite',         col:null },
+          { l:'MCP + Device Auth',s:'Agent toolkit · TV-code auth',        col:C.violet, sk:'rgba(167,139,250,0.2)', fi:'rgba(167,139,250,0.045)' },
+          { l:'YieldBox Sandbox', s:'solc-js compiler · workerd v8',       col:C.rose,   sk:'rgba(251,113,133,0.2)', fi:'rgba(251,113,133,0.045)' },
+          { l:'BullMQ + Redis',   s:'Job queue · Background tasks',        col:null },
+        ]},
+        { name:'SMART CONTRACTS · ANY EVM CHAIN', y:284, h:108, chips:[
+          { l:'PrivacyRouter',   s:'ZWERC20 · ZK privacy layer',           col:C.violet, sk:'rgba(167,139,250,0.2)', fi:'rgba(167,139,250,0.045)' },
+          { l:'DripsFacetA+B',   s:'Streams · Splits · Collect',           col:null },
+          { l:'YieldManager',    s:'IYieldStrategy plugin system',         col:C.amber,  sk:'rgba(251,191,36,0.22)',  fi:'rgba(251,191,36,0.05)' },
+          { l:'ERC-4337 Stack',  s:'Safe · Paymaster · Rundler',           col:null },
+          { l:'Groth16Verifier', s:'Poseidon hash · ZK proofs on-chain',   col:C.violet, sk:'rgba(167,139,250,0.2)', fi:'rgba(167,139,250,0.045)' },
+        ]},
+      ].forEach((tier, ti) => {
+        rrect(x, 16, tier.y, W-32, tier.h, 10);
+        x.fillStyle = 'rgba(255,255,255,0.016)'; x.fill();
+        x.strokeStyle = 'rgba(148,163,184,0.09)'; x.lineWidth = 0.75; x.stroke();
+        T(x, tier.name, cStartX + cw/2, tier.y+14, 'rgba(148,163,184,0.28)', 9, '600');
+
+        tier.chips.forEach((chip, ci) => {
+          const bx = cStartX + ci*(cw+cgap), by = tier.y + 24;
+          rrect(x, bx, by, cw, ch, 7);
+          x.fillStyle = chip.fi || C.panelFill; x.fill();
+          x.strokeStyle = chip.sk || C.panelStroke; x.lineWidth = 0.75; x.stroke();
+          T(x, chip.l, bx+cw/2, by+20, chip.col || C.white, 12, '700');
+          wrapT(x, chip.s, bx+cw/2, by+46, cw-14, 10, '400', C.dim);
+        });
+
+        if (ti < 2) aV(x, W/2, tier.y+tier.h+1, tier.y+tier.h+16);
+      });
+
+      T(x, 'Diamond proxy pattern · any EVM-compatible chain · hot-swappable strategies', W/2, 414, C.dimmer, 11, '400');
+      watermark(x, W, H);
+    }
+  },
+
+];
+
+// ─── table factory ────────────────────────────────────────
+function buildTable(id, label, headers, rows, colFracs) {
+  const W = 900;
+  const MARGIN = 22, PAD_X = 7, PAD_Y = 5;
+  const SZ = 18, LINE_H = 27, TOP_PAD = 12, BOT_PAD = 14;
+  const tableW = W - 2 * MARGIN;
+  const colWs = colFracs.map(f => f * tableW);
+
+  // offscreen measurement
+  const mc = document.createElement('canvas');
+  mc.width = W * S; mc.height = 2000 * S;
+  const mx = mc.getContext('2d');
+  mx.scale(S, S);
+
+  function countLines(text, cellW, weight) {
+    mx.font = `${weight} ${SZ}px Inter,sans-serif`;
+    const words = String(text).split(' ');
+    let line = '', n = 1;
+    for (const w of words) {
+      const t = line ? line + ' ' + w : w;
+      if (mx.measureText(t).width > cellW - 2 * PAD_X && line) { line = w; n++; }
+      else line = t;
+    }
+    return n;
+  }
+
+  const headerH = Math.max(...headers.map((h, i) => countLines(h, colWs[i], '700'))) * LINE_H + 2 * PAD_Y;
+  const rowHs   = rows.map(row => Math.max(...row.map((c, i) => countLines(c, colWs[i], '400'))) * LINE_H + 2 * PAD_Y);
+  const H = Math.ceil(TOP_PAD + headerH + rowHs.reduce((a, b) => a + b, 0) + BOT_PAD);
+
+  return {
+    id, label, W, H,
+    draw(x, W, H) {
+      // light background
+      x.fillStyle = '#ffffff'; x.fillRect(0, 0, W, H);
+      // very subtle warm tint top-right
+      const tint = x.createRadialGradient(W, 0, 0, W, 0, W * 0.7);
+      tint.addColorStop(0, 'rgba(251,191,36,0.04)'); tint.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = tint; x.fillRect(0, 0, W, H);
+
+      function cellText(text, lx, ty, maxW, weight, color) {
+        x.save();
+        x.font = `${weight} ${SZ}px Inter,sans-serif`;
+        x.fillStyle = color; x.textAlign = 'left';
+        const words = String(text).split(' ');
+        let line = '', lines = [];
+        for (const w of words) {
+          const t = line ? line + ' ' + w : w;
+          if (x.measureText(t).width > maxW && line) { lines.push(line); line = w; }
+          else line = t;
+        }
+        lines.push(line);
+        lines.forEach((l, li) => x.fillText(l, lx, ty + SZ + li * LINE_H));
+        x.restore();
+      }
+
+      let y = TOP_PAD;
+
+      // header bg
+      x.fillStyle = '#f5f5f7';
+      x.fillRect(MARGIN, y, tableW, headerH);
+
+      // header text
+      headers.forEach((h, ci) => {
+        const cx = MARGIN + colWs.slice(0, ci).reduce((a, b) => a + b, 0);
+        cellText(h, cx + PAD_X, y + PAD_Y, colWs[ci] - 2 * PAD_X, '700', '#111111');
+      });
+      y += headerH;
+
+      // header separator
+      x.strokeStyle = '#d1d5db'; x.lineWidth = 0.7;
+      x.beginPath(); x.moveTo(MARGIN, y); x.lineTo(MARGIN + tableW, y); x.stroke();
+
+      // rows
+      rows.forEach((row, ri) => {
+        const rh = rowHs[ri];
+        if (ri % 2 !== 0) {
+          x.fillStyle = '#fafafa';
+          x.fillRect(MARGIN, y, tableW, rh);
+        }
+        row.forEach((cell, ci) => {
+          const cx = MARGIN + colWs.slice(0, ci).reduce((a, b) => a + b, 0);
+          const col = String(cell).includes('⚑') ? '#7c3aed' :
+                      cell === 'Built'            ? '#16a34a' :
+                      ci === 0                    ? '#111111' :
+                                                    '#374151';
+          const w = (ci === 0 || String(cell).includes('⚑') || cell === 'Built') ? '600' : '400';
+          cellText(cell, cx + PAD_X, y + PAD_Y, colWs[ci] - 2 * PAD_X, w, col);
+        });
+        y += rh;
+        if (ri < rows.length - 1) {
+          x.strokeStyle = '#e5e7eb'; x.lineWidth = 0.5;
+          x.beginPath(); x.moveTo(MARGIN, y); x.lineTo(MARGIN + tableW, y); x.stroke();
+        }
+      });
+
+      // column separators
+      let cx = MARGIN;
+      colWs.slice(0, -1).forEach(cw => {
+        cx += cw;
+        x.strokeStyle = '#e5e7eb'; x.lineWidth = 0.5;
+        x.beginPath(); x.moveTo(cx, TOP_PAD); x.lineTo(cx, y); x.stroke();
+      });
+
+      // watermark (dark on light)
+      x.save();
+      x.font = '300 italic 13px "Cormorant Garamond", Georgia, serif';
+      x.fillStyle = 'rgba(0,0,0,0.18)';
+      x.textAlign = 'right';
+      x.fillText('Xylkstream', W - 14, H - 10);
+      x.restore();
+    }
+  };
+}
+
+// ─── table diagrams ───────────────────────────────────────
+const TABLE_DIAGRAMS = [
+
+  buildTable('table-01', 'Table 1 — The Server Knows',
+    ['The Server Knows', "The Server Doesn't Know"],
+    [
+      ['A circle exists with this name',  'Who the members are'],
+      ['How many members joined',         "Members' stealth addresses"],
+      ['When they joined',                'How much is being streamed'],
+    ],
+    [0.5, 0.5]
+  ),
+
+  buildTable('table-02', 'Table 2 — ERC-8065 vs Tornado Cash',
+    ['', 'Tornado Cash', 'ERC-8065'],
+    [
+      ['Denominations', '0.1, 1, 10, 100 ETH only',       'Any amount. Partial remints.'],
+      ['Token support', 'ETH + a few tokens, separate pools', 'Wraps any ERC20'],
+      ['NFT support',   'None',                            'Built-in via id parameter (id=0 fungible, id>0 NFT)'],
+      ['Composability', 'Standalone mixer',                'Wrapped token is standard ERC20, works with any protocol'],
+      ['Post-privacy',  'Withdraw or nothing',             'Reminted tokens stay private, keep using them'],
+    ],
+    [0.18, 0.36, 0.46]
+  ),
+
+  buildTable('table-03', 'Table 3 — Groth16 Proof Inputs',
+    ['Input', 'Public / Private', 'What It Proves'],
+    [
+      ['root',             'Public',      'My commitment is in this Merkle tree'],
+      ['nullifier',        'Public',      "I'm spending this specific deposit"],
+      ['to (recipient)',   'Public',      'Send the funds here'],
+      ['remintAmount',     'Public',      "I'm claiming this much"],
+      ['secret',          'Private ⚑',   'I know the secret that created the commitment'],
+      ['addr20',          'Private ⚑',   'I know which privacy address holds the funds'],
+      ['pathElements[20]','Private ⚑',   "Here's the Merkle path proving inclusion"],
+    ],
+    [0.18, 0.18, 0.64]
+  ),
+
+  buildTable('table-04', "Table 4 — Where Can't You Cheat",
+    ['Attack', 'Why It Fails'],
+    [
+      ['Forge a proof',            'ZK. Computationally infeasible.'],
+      ['Reuse a nullifier',        'Contract rejects. Permanently marked spent.'],
+      ['Claim more than deposited','Circuit enforces remintAmount ≤ commitAmount.'],
+      ['Link deposit to remint',   'Secret and privacy address are private inputs, never on-chain.'],
+      ['Correlate by amount',      'Partial remints supported: claim any amount up to deposit.'],
+    ],
+    [0.32, 0.68]
+  ),
+
+  buildTable('table-05', 'Table 5 — Yield Strategy Interface',
+    ['Function', 'What It Does'],
+    [
+      ['invest()',        'Open a position (e.g., concentrated liquidity). Return position data.'],
+      ['withdraw()',      'Close position, collect fees, convert back to original token.'],
+      ['forceWithdraw()', 'Emergency withdrawal when a stream closes early.'],
+    ],
+    [0.22, 0.78]
+  ),
+
+  buildTable('table-06', 'Table 6 — Diamond Facet Split',
+    ['Contract', 'Role', 'Size'],
+    [
+      ['DripsRouter',  'Selector-based routing proxy',         '789B'],
+      ['DripsFacetA',  'Streams, drivers, balances, withdraw', '~13.9KB'],
+      ['DripsFacetB',  'Splits, give, collect, setSplits',     '~10.4KB'],
+    ],
+    [0.22, 0.60, 0.18]
+  ),
+
+  buildTable('table-07', 'Table 7 — Privacy Stack',
+    ['Component', 'What It Does', 'Status'],
+    [
+      ['ZWERC20',         'Wraps any ERC20 with ZK privacy',                        'Built'],
+      ['Groth16Verifier', 'On-chain ZK proof verification',                         'Built'],
+      ['PoseidonT3',      'Poseidon hash library for commitments',                  'Built'],
+      ['remint.circom',   'ZK circuit: proves ownership without revealing source',  'Built'],
+      ['Privacy Engine',  'Client-side: secrets, Merkle, proofs, nullifiers',       'Built'],
+      ['PrivacyRouter',   'Unified entry point that wraps/unwraps ZWT transparently','Built'],
+    ],
+    [0.22, 0.60, 0.18]
+  ),
+
+  buildTable('table-08', 'Table 8 — Trust Model',
+    ['Layer', 'What It Does', 'Who Runs It'],
+    [
+      ['WDK + Privy',       'Deterministic stealth wallet derivation',     'Client-side'],
+      ['Paymaster',         'Gas sponsorship (no ETH link to identity)',   'Protocol'],
+      ['ZWERC20',           'ZK privacy: deposit, remint, withdraw',       'Smart contract'],
+      ['Groth16 Verifier',  'Proof verification',                          'Smart contract'],
+      ['Drips (FacetA/B)',  'Streaming, splits, collection',               'Smart contract'],
+      ['YieldManager',      'Capital allocation to strategies',            'Smart contract + AI agent'],
+      ['MCP Agent',         'Strategy selection and monitoring',           'Self-hosted / any runtime'],
+      ['Bundler (Rundler)', 'UserOperation submission',                    'Self-hosted'],
+    ],
+    [0.22, 0.52, 0.26]
+  ),
+
+  buildTable('table-09', 'Table 9 — Stack',
+    ['Layer', 'Technologies'],
+    [
+      ['Contracts', 'Foundry, Solidity 0.8.20, Shanghai EVM, OpenZeppelin, Circom + snarkjs'],
+      ['Server',    'Express 5, TypeScript, ESM, Viem, Privy server auth, Kysely + Turso, BullMQ + Redis, MCP SDK'],
+      ['Client',    'React 19, TanStack Router + Query, Privy React auth, WDK ERC-4337, Tailwind 4, Framer Motion, Radix UI, Vite'],
+      ['Agents',    'MCP server, device auth (TV-code flow), WebSocket proxy, proposal queue'],
+      ['Privacy',   'ERC-8065 ZWERC20, Groth16 (snarkjs), Poseidon hash, depth-20 Merkle tree, Rundler bundler'],
+    ],
+    [0.14, 0.86]
+  ),
+
+];
+
+const ALL_DIAGRAMS = [...DIAGRAMS, ...TABLE_DIAGRAMS];
+
+// ─── card renderer ────────────────────────────────────────
+const canvasRefs = {};
+
+function renderCard(d) {
+  const { c, x } = mkCanvas(d.W, d.H);
+  d.draw(x, d.W, d.H);
+  canvasRefs[d.id] = c;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.appendChild(c);
+
+  const foot = document.createElement('div');
+  foot.className = 'card-foot';
+  foot.innerHTML = `<span class="card-name">${d.label}</span><span class="card-size">${d.id}.png &nbsp;·&nbsp; ${d.W*S} × ${d.H*S}px</span>`;
+  card.appendChild(foot);
+
+  return card;
+}
+
+// ─── boot ─────────────────────────────────────────────────
+(function() {
+  const stack = document.getElementById('stack');
+  ALL_DIAGRAMS.forEach(d => {
+    try { stack.appendChild(renderCard(d)); }
+    catch(e) { console.error('Failed to render', d.id, e); }
+  });
+})();
+
+// ─── save all ─────────────────────────────────────────────
+async function saveAll() {
+  const btn = document.getElementById('dl-btn');
+  const status = document.getElementById('status');
+
+  if ('showDirectoryPicker' in window) {
+    let dir;
+    try { dir = await window.showDirectoryPicker(); } catch (e) { return; }
+    for (const d of ALL_DIAGRAMS) {
+      status.textContent = `Saving ${d.id}.png…`;
+      const blob = await new Promise(r => canvasRefs[d.id].toBlob(r, 'image/png', 1.0));
+      const fh = await dir.getFileHandle(`${d.id}.png`, { create:true });
+      const w = await fh.createWritable();
+      await w.write(blob); await w.close();
+    }
+    btn.className = 'done';
+    btn.innerHTML = '✓ All saved';
+    status.textContent = `${DIAGRAMS.length} PNGs saved — filenames match diagram IDs, ready to drop in docs/`;
+    return;
+  }
+
+  // fallback: individual downloads
+  for (const d of DIAGRAMS) {
+    status.textContent = `Downloading ${d.id}.png…`;
+    const blob = await new Promise(r => canvasRefs[d.id].toBlob(r, 'image/png', 1.0));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = `${d.id}.png`; a.click();
+    URL.revokeObjectURL(url);
+    await new Promise(r => setTimeout(r, 400));
+  }
+  btn.className = 'done';
+  btn.innerHTML = '✓ All downloaded';
+  status.textContent = `${DIAGRAMS.length} files downloaded · filenames match diagram IDs`;
+}
+</script>
+</body>
+</html>

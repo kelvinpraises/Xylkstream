@@ -19,4 +19,4 @@ remappings = [
 ]
 
 [rpc_endpoints]
-bsc_mainnet = "https://bsc-dataseed.binance.org"
+mainnet_rpc = "https://bsc-dataseed.binance.org"

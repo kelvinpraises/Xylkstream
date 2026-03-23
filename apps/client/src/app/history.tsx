@@ -1,11 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useNow } from "@/hooks/use-now";
 import { History, ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/molecules/card";
 import { Badge } from "@/components/atoms/badge";
-import { getStreams } from "@/store/stream-store";
+import { useLocalStreams } from "@/store/stream-store";
 import { truncateAddress } from "@/utils";
-import { useChain } from "@/providers/chain-provider";
 
 export const Route = createFileRoute("/history")({
   component: HistoryPage,
@@ -13,9 +12,8 @@ export const Route = createFileRoute("/history")({
 
 function HistoryPage() {
   const navigate = useNavigate();
-  const { chainId } = useChain();
-  const streams = getStreams(chainId);
-  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
+  const { streams } = useLocalStreams();
+  const nowSecs = useNow();
 
   return (
     <div className="w-full max-w-7xl mx-auto">

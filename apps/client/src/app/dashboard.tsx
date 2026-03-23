@@ -1,21 +1,23 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Plus, Droplets, Activity, TrendingUp, Wallet, ShieldCheck } from "lucide-react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
-import { useMemo, useState } from "react";
+import { Plus, Droplets, Activity, TrendingUp, Wallet } from "lucide-react";
+import { usePrivy } from "@privy-io/react-auth";
+import { useEffect, useMemo } from "react";
+import { useNow } from "@/hooks/use-now";
+import { getPendingByType } from "@/utils/pending-engine";
 import { formatUnits } from "viem";
 import { StreamCard } from "@/components/organisms/stream-card";
-import { YieldReactor } from "@/components/organisms/yield-reactor";
+import { StreamReactor } from "@/components/organisms/stream-reactor";
 import { WelcomeDialog } from "@/components/organisms/welcome-dialog";
-import { PasswordDialog } from "@/components/organisms/password-dialog";
-import { DepositPrivacyDialog } from "@/components/organisms/deposit-privacy-form";
+
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Badge } from "@/components/atoms/badge";
 import { truncateAddress, cn } from "@/utils";
-import { getStreams } from "@/store/stream-store";
+import { useLocalStreams } from "@/store/stream-store";
 import { useTokenBalance } from "@/hooks/use-stream-reads";
-import { useStealthWallet } from "@/hooks/use-stealth-wallet";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
 import { useChain } from "@/providers/chain-provider";
 import { getSendableTokens } from "@/config/chains";
+import { useAutoCollect } from "@/hooks/use-auto-collect";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -35,45 +37,53 @@ function StatSkeleton() {
 
 function DashboardPage() {
   const navigate = useNavigate();
-  const { ready } = usePrivy();
-  const { wallets } = useWallets();
-  const [shieldDialogOpen, setShieldDialogOpen] = useState(false);
+  const { ready, authenticated } = usePrivy();
 
-  // Privy embedded wallet address
-  const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
-  const walletAddress = embeddedWallet?.address as `0x${string}` | undefined;
+  // Redirect to pending circle join if one exists (post-login flow)
+  useEffect(() => {
+    if (!ready || !authenticated) return;
+    const pending = getPendingByType("circle_join");
+    if (pending.length === 0) return;
+    const { inviteCode, senderPubKey } = pending[0].payload;
+    if (inviteCode && senderPubKey) {
+      navigate({ to: "/circles/join", search: { code: inviteCode, key: senderPubKey } });
+    }
+  }, [ready, authenticated, navigate]);
 
   // Stealth wallet (privacy layer)
-  const { stealthAddress, isReady: isStealthReady } = useStealthWallet();
+  const stealthWallet = useStealthWallet();
+  const { stealthAddress, isReady: isStealthReady } = stealthWallet;
 
   // Chain config
-  const { chainConfig, chainId } = useChain();
+  const { chainConfig } = useChain();
 
-  // Primary token balance
-  const primaryToken = getSendableTokens(chainConfig.contracts)[0]?.address;
+  // Token balances — query each sendable token
+  const tokens = getSendableTokens(chainConfig.contracts);
+  const walletAddr = isStealthReady && stealthAddress ? (stealthAddress as `0x${string}`) : undefined;
 
-  const { data: tokenBalanceRaw } = useTokenBalance(walletAddress, primaryToken);
+  const { data: usdtBalanceRaw } = useTokenBalance(walletAddr, tokens[0]?.address);
+  const { data: usdcBalanceRaw } = useTokenBalance(walletAddr, tokens[1]?.address);
 
-  const walletBalance = useMemo(() => {
-    if (tokenBalanceRaw === undefined) return null;
-    return parseFloat(formatUnits(tokenBalanceRaw, 18));
-  }, [tokenBalanceRaw]);
+  const usdcBalance = useMemo(() => {
+    if (usdcBalanceRaw === undefined) return null;
+    return parseFloat(formatUnits(usdcBalanceRaw, 18));
+  }, [usdcBalanceRaw]);
 
-  // Stealth wallet balance (zwUSDC)
-  const { data: stealthBalanceRaw } = useTokenBalance(
-    isStealthReady && stealthAddress ? (stealthAddress as `0x${string}`) : undefined,
-    chainConfig.contracts.zwUsdc,
-  );
-  const stealthBalance = useMemo(() => {
-    if (!stealthBalanceRaw) return 0;
-    return parseFloat(formatUnits(stealthBalanceRaw, 18));
-  }, [stealthBalanceRaw]);
+  const usdtBalance = useMemo(() => {
+    if (usdtBalanceRaw === undefined) return null;
+    return parseFloat(formatUnits(usdtBalanceRaw, 18));
+  }, [usdtBalanceRaw]);
+
+  const totalBalance = (usdcBalance ?? 0) + (usdtBalance ?? 0);
 
   // Streams from localStorage (partitioned by chain)
-  const streams = useMemo(() => getStreams(chainId), [chainId]);
+  const { streams } = useLocalStreams();
   const isLoading = !ready;
 
-  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
+  // Auto-collect incoming payments when enabled in settings
+  useAutoCollect();
+
+  const nowSecs = useNow();
 
   // Compute stats from localStorage streams
   const stats = useMemo(() => {
@@ -90,40 +100,39 @@ function DashboardPage() {
     return { activeStreams, totalAmount, outflowRate };
   }, [streams, nowSecs]);
 
-  // Format streams for StreamCard
-  const formattedStreams = useMemo(() => {
-    return streams.map((s) => {
-      const duration = s.endTimestamp - s.startTimestamp;
-      const elapsed = Math.max(0, nowSecs - s.startTimestamp);
-      const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
-      const streamed = parseFloat(s.totalAmount) * (progress / 100);
-      const isActive = s.endTimestamp > nowSecs;
-      return {
-        id: s.id,
-        recipientName: truncateAddress(s.recipientAddress),
-        recipientAddress: truncateAddress(s.recipientAddress),
-        avatarFallback: s.recipientAddress.slice(2, 4).toUpperCase(),
-        status: (isActive ? "ACTIVE" : "COMPLETED") as "ACTIVE" | "COMPLETED",
-        streamedAmount: streamed,
-        streamedCurrency: s.tokenSymbol,
-        rateAmount: parseFloat(s.totalAmount) / Math.max(1, duration / (86400 * 30)),
-        rateInterval: "/mo",
-        progress,
-      };
-    });
+  // Format streams for StreamCard — only show active ones on the dashboard
+  const activeStreams = useMemo(() => {
+    return streams
+      .filter((s) => s.endTimestamp > nowSecs)
+      .map((s) => {
+        const duration = s.endTimestamp - s.startTimestamp;
+        const elapsed = Math.max(0, nowSecs - s.startTimestamp);
+        const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+        const streamed = parseFloat(s.totalAmount) * (progress / 100);
+        return {
+          id: s.id,
+          recipientName: truncateAddress(s.recipientAddress),
+          recipientAddress: truncateAddress(s.recipientAddress),
+          avatarFallback: s.recipientAddress.slice(2, 4).toUpperCase(),
+          status: "ACTIVE" as const,
+          streamedAmount: streamed,
+          streamedCurrency: s.tokenSymbol,
+          rateAmount: parseFloat(s.totalAmount) / Math.max(1, duration / (86400 * 30)),
+          rateInterval: "/mo",
+          progress,
+          isPrivate: s.isPrivate,
+          walletAddress: s.walletAddress,
+        };
+      });
   }, [streams, nowSecs]);
 
+  const completedCount = streams.length - activeStreams.length;
   const hasStreams = streams.length > 0;
-  const totalDisplayBalance = (walletBalance ?? 0) + stealthBalance;
 
   return (
     <div className="w-full max-w-7xl mx-auto">
       {/* Welcome dialog for new users */}
       <WelcomeDialog />
-      {/* Password dialog — derives stealth wallet after login */}
-      <PasswordDialog />
-      {/* Privacy deposit dialog */}
-      <DepositPrivacyDialog open={shieldDialogOpen} onOpenChange={setShieldDialogOpen} />
 
       {/* Header */}
       <div className="mb-12">
@@ -145,22 +154,26 @@ function DashboardPage() {
           </>
         ) : (
           <>
-            {/* Total Outflow / Balance with Shader */}
+            {/* Balance / Outflow with Shader */}
             <div className="relative p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all overflow-hidden">
               <div className="absolute inset-0 opacity-30">
-                <YieldReactor
+                <StreamReactor
                   active={true}
                   intensity={hasStreams && stats.outflowRate > 0 ? Math.min(Math.max(70, stats.outflowRate * 150), 300) : 40}
                 />
               </div>
-
               <div className="relative z-10">
-                <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4">
-                  {hasStreams ? (
-                    <Droplets className="w-6 h-6 text-amber-400" />
-                  ) : (
-                    <Wallet className="w-6 h-6 text-amber-400" />
-                  )}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
+                    {hasStreams ? (
+                      <Droplets className="w-6 h-6 text-amber-400" />
+                    ) : (
+                      <Wallet className="w-6 h-6 text-amber-400" />
+                    )}
+                  </div>
+                  <Badge variant="outline" className="text-xs">
+                    {chainConfig.chain.name}
+                  </Badge>
                 </div>
                 <h3 className="text-muted-foreground text-sm mb-2">
                   {hasStreams ? "Sending" : "Your Balance"}
@@ -168,17 +181,17 @@ function DashboardPage() {
                 {hasStreams ? (
                   <>
                     <p className="text-3xl font-light text-foreground font-mono">
-                      {(stats.outflowRate * 86400 * 30).toFixed(2)}
+                      ${(stats.outflowRate * 86400 * 30).toFixed(2)}
                     </p>
                     <p className="text-muted-foreground text-sm mt-1">/ month</p>
                   </>
                 ) : (
                   <>
                     <p className="text-3xl font-light text-foreground font-mono">
-                      {totalDisplayBalance.toFixed(2)}
+                      ${totalBalance.toFixed(2)}
                     </p>
                     <p className="text-muted-foreground text-sm mt-1">
-                      {totalDisplayBalance > 0 ? "Ready to send" : "Add funds to get started"}
+                      {totalBalance > 0 ? "Ready to send" : "Add funds to get started"}
                     </p>
                   </>
                 )}
@@ -186,19 +199,22 @@ function DashboardPage() {
             </div>
 
             {/* Bonus Earned — coming soon */}
-            <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all">
+            <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all overflow-hidden">
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-4">
                 <TrendingUp className="w-6 h-6 text-emerald-400" />
               </div>
               <h3 className="text-muted-foreground text-sm mb-2">Bonus Earned</h3>
               <p className="text-3xl font-light text-muted-foreground/50 font-mono">--</p>
-              <p className="text-muted-foreground text-sm mt-1">
-                Yield coming soon
-              </p>
+              <button
+                onClick={() => navigate({ to: "/settings" })}
+                className="text-sm mt-1 text-amber-400 hover:text-amber-300 transition-colors"
+              >
+                Connect agent to start yield
+              </button>
             </div>
 
             {/* Active Payments */}
-            <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all">
+            <div className="p-6 rounded-2xl bg-card border border-border hover:border-primary/30 transition-all overflow-hidden">
               <div className="w-12 h-12 rounded-full bg-rose-500/10 flex items-center justify-center mb-4">
                 <Activity className="w-6 h-6 text-rose-400" />
               </div>
@@ -229,19 +245,19 @@ function DashboardPage() {
               Active Payments
             </h2>
             {hasStreams && (
-              <Badge variant="secondary" className="text-xs">
-                {stats.activeStreams} active
-              </Badge>
+              <>
+                <Badge variant="secondary" className="text-xs">
+                  {activeStreams.length} active
+                </Badge>
+                {completedCount > 0 && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    {completedCount} completed
+                  </Badge>
+                )}
+              </>
             )}
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShieldDialogOpen(true)}
-              className="flex items-center gap-2 px-6 py-4 text-base rounded-full bg-gradient-to-r from-amber-600/20 to-rose-600/10 border border-amber-500/40 text-amber-300 font-medium hover:border-amber-400/70 hover:text-amber-200 transition-all shadow-[0_0_20px_-8px_rgba(251,191,36,0.25)] hover:shadow-[0_0_30px_-4px_rgba(251,191,36,0.4)]"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span className="lowercase">shield funds</span>
-            </button>
             <button
               onClick={() => navigate({ to: "/streams" })}
               className="flex items-center gap-2 px-8 py-4 text-lg rounded-full bg-gradient-to-r from-[#0B1221] to-[#0f172a] border border-amber-500/30 text-white font-medium hover:border-amber-400/60 transition-all shadow-[0_0_25px_-8px_rgba(251,191,36,0.3)] hover:shadow-[0_0_35px_-5px_rgba(251,191,36,0.5)]"
@@ -252,10 +268,10 @@ function DashboardPage() {
           </div>
         </div>
 
-        {formattedStreams.length > 0 ? (
+        {activeStreams.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {formattedStreams.map((stream) => (
-              <StreamCard key={stream.id} stream={stream} />
+            {activeStreams.map((stream) => (
+              <StreamCard key={stream.id} stream={stream} isPrivate={stream.isPrivate} walletAddress={stream.walletAddress} />
             ))}
           </div>
         ) : (
@@ -263,16 +279,20 @@ function DashboardPage() {
             <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
               <Droplets className="w-6 h-6 text-amber-400" />
             </div>
-            <h3 className="text-foreground font-medium mb-2">No payments yet</h3>
+            <h3 className="text-foreground font-medium mb-2">
+              {completedCount > 0 ? "All payments completed" : "No payments yet"}
+            </h3>
             <p className="text-muted-foreground text-sm max-w-md mx-auto mb-6">
-              Send your first payment to get started.
+              {completedCount > 0
+                ? `${completedCount} payment${completedCount > 1 ? "s" : ""} finished. Start a new one or check your history.`
+                : "Send your first payment to get started."}
             </p>
             <button
               onClick={() => navigate({ to: "/streams" })}
               className="inline-flex items-center gap-2 px-8 py-4 text-lg rounded-full bg-gradient-to-r from-[#0B1221] to-[#0f172a] border border-amber-500/30 text-white font-medium hover:border-amber-400/60 transition-all shadow-[0_0_25px_-8px_rgba(251,191,36,0.3)] hover:shadow-[0_0_35px_-5px_rgba(251,191,36,0.5)]"
             >
               <Plus className="w-4 h-4" />
-              Send Your First Payment
+              {completedCount > 0 ? "New Payment" : "Send Your First Payment"}
             </button>
           </div>
         )}

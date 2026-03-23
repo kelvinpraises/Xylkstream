@@ -22,7 +22,7 @@ import { Switch } from "@/components/atoms/switch";
 import { toast } from "sonner";
 import { useCollectStream } from "@/hooks/use-stream-collect";
 import { useSplittable, useCollectable } from "@/hooks/use-stream-reads";
-import { useStealthWalletContext } from "@/providers/stealth-wallet-provider";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
 import { usePrivacyEngine } from "@/hooks/use-privacy-engine";
 import { useChain } from "@/providers/chain-provider";
 
@@ -49,7 +49,7 @@ const COLLECT_SUB_STEP_LABELS: Record<CollectSubStep, string> = {
   collect: "collect funds",
 };
 
-// Token display decimals (BSC USDC/USDT/BUSD are 18 dec)
+// Token display decimals (USDC/USDT are 18 dec)
 const TOKEN_DECIMALS = 18;
 
 // --- step indicator ---
@@ -169,7 +169,7 @@ export function CollectPrivacyDialog({
   const collect = useCollectStream();
 
   // Privacy
-  const { stealthAddress, isReady: stealthReady } = useStealthWalletContext();
+  const { stealthAddress, isReady: stealthReady } = useStealthWallet();
   const { generateRemintProof, syncTree, proofProgress } = usePrivacyEngine();
   const { chainConfig } = useChain();
 
@@ -571,7 +571,7 @@ export function CollectPrivacyDialog({
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs text-amber-400/70 hover:text-amber-400 transition-colors"
                   >
-                    view on bscscan
+                    view on block explorer
                     <ExternalLink className="w-3 h-3" />
                   </a>
                 )}

@@ -11,11 +11,16 @@ import {
   Moon,
   Sun,
   Copy,
-  ExternalLink,
+  Network,
+  Bot,
+  Boxes,
+  Wallet,
 } from "lucide-react";
 import * as React from "react";
 import { usePrivy } from "@privy-io/react-auth";
 import { useLogout } from "@/hooks/use-logout";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
+import { usePendingProposalCount } from "@/hooks/use-proposals";
 import { truncateAddress } from "@/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/atoms/avatar";
 import { useTheme } from "@/providers/theme-provider";
@@ -45,6 +50,8 @@ import {
 } from "@/components/molecules/dropdown-menu";
 import { cn } from "@/utils";
 import { useChain } from "@/providers/chain-provider";
+import { supportedChains } from "@/config/chains";
+import { useCollectableScanner } from "@/hooks/use-collectable-scanner";
 
 const navData = {
   platform: [
@@ -54,9 +61,9 @@ const navData = {
       icon: LayoutDashboard,
     },
     {
-      title: "Assistant",
-      url: "/studio",
-      icon: Sparkles,
+      title: "Wallet",
+      url: "/wallet",
+      icon: Wallet,
     },
     {
       title: "Payments",
@@ -70,8 +77,18 @@ const navData = {
     },
     {
       title: "People",
-      url: "/contacts",
+      url: "/circles",
       icon: Users,
+    },
+    {
+      title: "Proposals",
+      url: "/proposals",
+      icon: Bot,
+    },
+    {
+      title: "YieldBox",
+      url: "/yieldbox",
+      icon: Boxes,
     },
     {
       title: "Settings",
@@ -82,34 +99,35 @@ const navData = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const { user } = usePrivy();
+  usePrivy(); // ensure auth context is available
   const location = useLocation();
   const { isMobile } = useSidebar();
   const { mutate: logout } = useLogout();
   const { setTheme, theme } = useTheme();
-  const { chainConfig } = useChain();
+  const { chainId, switchChain } = useChain();
+  const { data: pendingCount } = usePendingProposalCount();
+  const { stealthAddress } = useStealthWallet();
+  const { collectableTokens } = useCollectableScanner();
 
-  const walletAddress = user?.wallet?.address;
-  const formattedBalance = "—";
 
   const userData = {
-    name: truncateAddress(walletAddress ?? ""),
+    name: stealthAddress ? truncateAddress(stealthAddress) : "...",
     email: "Signed In",
-    avatar: `https://avatar.vercel.sh/${walletAddress || "user"}`,
+    avatar: `https://avatar.vercel.sh/${stealthAddress || "user"}`,
   };
 
   const handleCopyAddress = () => {
-    if (!walletAddress) return;
-    navigator.clipboard.writeText(walletAddress);
+    if (!stealthAddress) return;
+    navigator.clipboard.writeText(stealthAddress);
     toast.success("Address copied to clipboard");
   };
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground font-bold">
-            X
+        <div className="flex items-center gap-2 py-2">
+          <div className="size-8 min-w-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center">
+            <span className="font-serif text-base font-bold italic text-white tracking-tighter">X</span>
           </div>
           <span className="font-serif text-lg font-medium tracking-wide text-foreground group-data-[collapsible=icon]:hidden">
             Xylkstream
@@ -136,6 +154,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                     >
                       <item.icon />
                       <span>{item.title}</span>
+                      {item.title === "Proposals" && !!pendingCount && pendingCount > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/20 text-[10px] font-medium text-purple-400">
+                          {pendingCount}
+                        </span>
+                      )}
+                      {item.title === "Wallet" && collectableTokens.length > 0 && (
+                        <span className="ml-auto h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_6px_1px_rgba(251,191,36,0.6)]" />
+                      )}
                     </SidebarMenuButton>
                   </Link>
                 </SidebarMenuItem>
@@ -172,51 +198,51 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 align="end"
                 sideOffset={4}
               >
-                {/* Network info section */}
-                <div className="px-2 py-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs text-muted-foreground">BSC Testnet</span>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                      Testnet
-                    </span>
-                  </div>
-                  <div className="text-sm font-mono text-foreground">
-                    {formattedBalance} <span className="text-xs text-muted-foreground">tBNB</span>
-                  </div>
-                </div>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="gap-2">
+                    <Network className="size-4" />
+                    {supportedChains[chainId]?.chain.name ?? "Unknown Network"}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {Object.values(supportedChains).map(({ chain }) => (
+                      <DropdownMenuItem
+                        key={chain.id}
+                        onClick={() => switchChain(chain.id)}
+                      >
+                        {chain.name}
+                        {chain.id === chainId && <span className="ml-auto">✓</span>}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleCopyAddress} disabled={!walletAddress}>
-                  <Copy className="mr-2 h-4 w-4" />
-                  Copy Address
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  const faucetUrl = chainConfig.chain.blockExplorers?.default?.url;
-                  if (faucetUrl) window.open(faucetUrl, "_blank");
-                }}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Get Testnet BNB
+                <DropdownMenuItem onClick={handleCopyAddress} disabled={!stealthAddress}>
+                  <Copy className="size-4" />
+                  Copy Privacy Address
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Sun className="h-4 w-4 mr-2 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute h-4 w-4 mr-2 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-                    <span className="ml-6">Theme</span>
+                  <DropdownMenuSubTrigger className="gap-2">
+                    <div className="relative size-4">
+                      <Sun className="size-4 absolute rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+                      <Moon className="size-4 absolute rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    </div>
+                    Theme
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     <DropdownMenuItem onClick={() => setTheme("lavender")}>
-                      <Sparkles className="mr-2 h-4 w-4 text-purple-400" />
-                      <span>Light</span>
+                      <Sparkles className="size-4 text-purple-400" />
+                      Light
                       {theme === "lavender" && <span className="ml-auto">✓</span>}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setTheme("aurora")}>
-                      <Moon className="mr-2 h-4 w-4 text-indigo-400" />
-                      <span>Dark</span>
+                      <Moon className="size-4 text-indigo-400" />
+                      Dark
                       {theme === "aurora" && <span className="ml-auto">✓</span>}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setTheme("system")}>
                       <svg
-                        className="mr-2 h-4 w-4 text-slate-400"
+                        className="size-4 text-slate-400"
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 24 24"
                         fill="none"
@@ -229,14 +255,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         <line x1="8" x2="16" y1="21" y2="21" />
                         <line x1="12" x2="12" y1="17" y2="21" />
                       </svg>
-                      <span>System</span>
+                      System
                       {theme === "system" && <span className="ml-auto">✓</span>}
                     </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => logout()}>
-                  <LogOut />
+                  <LogOut className="size-4" />
                   Log Out
                 </DropdownMenuItem>
               </DropdownMenuContent>

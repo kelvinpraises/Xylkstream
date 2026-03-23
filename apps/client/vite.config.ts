@@ -27,6 +27,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": resolve(__dirname, "./src"),
+      "sodium-javascript": resolve(__dirname, "node_modules/sodium-javascript"),
       "vite-plugin-node-polyfills/shims/buffer": resolve(__dirname, "node_modules/vite-plugin-node-polyfills/shims/buffer"),
       "vite-plugin-node-polyfills/shims/global": resolve(__dirname, "node_modules/vite-plugin-node-polyfills/shims/global"),
       "vite-plugin-node-polyfills/shims/process": resolve(__dirname, "node_modules/vite-plugin-node-polyfills/shims/process"),

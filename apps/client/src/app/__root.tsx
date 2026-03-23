@@ -1,6 +1,7 @@
 import { createRootRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import RootProvider from "@/providers";
+import RootProvider, { LightProvider } from "@/providers";
 import { Toaster } from "@/components/molecules/sonner";
+import { PasswordDialog } from "@/components/organisms/password-dialog";
 import { AppSidebar } from "@/components/organisms/app-sidebar";
 import { SidebarInset, SidebarTrigger } from "@/components/organisms/sidebar";
 import { Separator } from "@/components/atoms/separator";
@@ -20,10 +21,13 @@ export const Route = createRootRoute({
 
 const formatPathSegment = (segment: string): string => {
   const routeNameMap: Record<string, string> = {
-    dashboard: "Dashboard",
-    streams: "Streams",
-    history: "History",
+    dashboard: "Home",
+    streams: "Payments",
+    history: "Activity",
     contacts: "Contacts",
+    circles: "People",
+    yieldbox: "YieldBox",
+    proposals: "Proposals",
     settings: "Settings",
   };
 
@@ -40,13 +44,24 @@ const formatPathSegment = (segment: string): string => {
 function RootLayout() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
+  const isFullscreenRoute = location.pathname.startsWith("/circles/join") || location.pathname.startsWith("/oauth/");
 
   const segments = location.pathname?.slice(1).split("/").filter(Boolean) || [];
 
-  if (isHomePage) {
+  if (location.pathname.startsWith("/oauth/")) {
+    return (
+      <LightProvider>
+        <Outlet />
+        <Toaster />
+      </LightProvider>
+    );
+  }
+
+  if (isHomePage || isFullscreenRoute) {
     return (
       <RootProvider>
         <Outlet />
+        <PasswordDialog />
         <Toaster />
       </RootProvider>
     );
@@ -92,6 +107,7 @@ function RootLayout() {
           <Outlet />
         </main>
       </SidebarInset>
+      <PasswordDialog />
       <Toaster />
       {/* <TanStackRouterDevtools /> */}
     </RootProvider>

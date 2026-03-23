@@ -19,24 +19,26 @@ interface StreamCardProps {
   };
   /** When true, renders a stealth-wallet / privacy badge on the card */
   isPrivate?: boolean;
+  /** Derived wallet address for this stream (shown when private) */
+  walletAddress?: string;
   className?: string;
 }
 
-export function StreamCard({ stream, isPrivate, className }: StreamCardProps) {
+export function StreamCard({ stream, isPrivate, walletAddress, className }: StreamCardProps) {
   const isActive = stream.status === "ACTIVE";
 
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl bg-card border border-white/5 p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:bg-card-hover hover:border-white/10",
-        isActive && "border-primary/10 ring-1 ring-primary/5",
+        "group relative overflow-hidden rounded-2xl bg-card border border-border p-5 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/30",
+        isActive && "border-primary/20 ring-1 ring-primary/5",
         className,
       )}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9 border border-white/10 bg-white/5">
+          <Avatar className="h-9 w-9 border border-border bg-muted/50">
             <AvatarImage src={stream.avatarUrl} />
             <AvatarFallback className="text-xs font-medium text-muted-foreground bg-transparent">
               {stream.avatarFallback}
@@ -49,6 +51,11 @@ export function StreamCard({ stream, isPrivate, className }: StreamCardProps) {
             <p className="text-[10px] text-muted-foreground font-mono tracking-wide opacity-70 truncate max-w-[100px]">
               {stream.recipientAddress}
             </p>
+            {isPrivate && walletAddress && (
+              <p className="text-[9px] text-amber-400/50 font-mono tracking-wide truncate max-w-[120px]">
+                via {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+              </p>
+            )}
           </div>
         </div>
 
@@ -112,7 +119,7 @@ export function StreamCard({ stream, isPrivate, className }: StreamCardProps) {
       </div>
 
       {/* Progress Bar (Liquid Flow) */}
-      <div className="relative h-1.5 w-full bg-black/10 rounded-full overflow-hidden mb-5">
+      <div className="relative h-1.5 w-full bg-muted rounded-full overflow-hidden mb-5">
         <div
           className="absolute top-0 left-0 h-full bg-foreground/80 rounded-full transition-all duration-1000 ease-out"
           style={{ width: `${stream.progress}%` }}
@@ -129,7 +136,7 @@ export function StreamCard({ stream, isPrivate, className }: StreamCardProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-md"
+          className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md"
         >
           <Edit2 className="w-3.5 h-3.5" />
         </Button>

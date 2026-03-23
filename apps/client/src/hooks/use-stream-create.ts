@@ -11,8 +11,64 @@ import {
   getPublicClient,
 } from "@/utils/streams";
 import { useChain } from "@/providers/chain-provider";
-import { addStream } from "@/store/stream-store";
-import { useStealthWallet } from "./use-stealth-wallet";
+import { addStream, getStreams } from "@/store/stream-store";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
+
+/**
+ * Build the currReceivers array from existing active localStorage streams
+ * for a given sender + token. Drips requires the current on-chain receiver set
+ * to verify the hash before replacing it.
+ */
+function buildCurrReceivers(
+  chainId: number,
+  senderAccountId: string,
+  tokenAddress: string,
+  _nowSecs: number,
+) {
+  // Include ALL streams for this sender+token — expired streams remain in the
+  // on-chain receiver set until explicitly removed via setStreams.
+  const existing = getStreams(chainId).filter(
+    (s) =>
+      s.accountId.toLowerCase() === senderAccountId.toLowerCase() &&
+      s.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+  );
+  // Must be sorted by (accountId, config) ascending — Drips enforces ordering
+  return existing
+    .map((s) => ({
+      accountId: BigInt(s.recipientAccountId),
+      config: packStreamConfig(
+        s.dripsStreamId ?? 1,
+        BigInt(s.amtPerSec),
+        0,
+        s.endTimestamp - s.startTimestamp,
+      ),
+    }))
+    .sort((a, b) => {
+      if (a.accountId < b.accountId) return -1;
+      if (a.accountId > b.accountId) return 1;
+      if (a.config < b.config) return -1;
+      if (a.config > b.config) return 1;
+      return 0;
+    });
+}
+
+/** Get the next available Drips stream ID for this sender+token. */
+function nextStreamId(chainId: number, senderAccountId: string, tokenAddress: string): number {
+  const existing = getStreams(chainId).filter(
+    (s) =>
+      s.accountId.toLowerCase() === senderAccountId.toLowerCase() &&
+      s.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+  );
+  const maxId = existing.reduce((max, s) => Math.max(max, s.dripsStreamId ?? 1), 0);
+  return maxId + 1;
+}
+
+/** Get the next available wallet derivation index for per-stream wallets. */
+function nextWalletIndex(chainId: number): number {
+  const existing = getStreams(chainId).filter((s) => s.isPrivate && s.walletIndex !== undefined);
+  if (existing.length === 0) return 1; // index 0 is the main stealth wallet
+  return Math.max(...existing.map((s) => s.walletIndex!)) + 1;
+}
 
 // --- types ---
 
@@ -49,7 +105,6 @@ export function useCreateStream() {
         totalAmount,
         tokenDecimals,
         durationSeconds,
-        streamId = 1,
         usePrivacy = false,
         tokenSymbol = "TOKEN",
         startTimestamp,
@@ -65,7 +120,6 @@ export function useCreateStream() {
       const totalAmountWei = parseUnits(totalAmount, tokenDecimals);
       const tokensPerSec = Number(totalAmount) / durationSeconds;
       const amtPerSec = calcAmtPerSec(tokensPerSec, tokenDecimals);
-      const config = packStreamConfig(streamId, amtPerSec, 0, durationSeconds);
 
       const receiverAccountId = await publicClient.readContract({
         address: contracts.addressDriver,
@@ -73,6 +127,34 @@ export function useCreateStream() {
         functionName: "calcAccountId",
         args: [recipientAddress],
       });
+
+      // Determine sender address early so we can look up existing streams
+      const senderAddress = usePrivacy
+        ? (stealthWallet.stealthAddress as `0x${string}`)
+        : (wallets.find((w) => w.walletClientType === "privy")?.address as `0x${string}`);
+
+      if (!senderAddress) {
+        throw new Error(usePrivacy
+          ? "Stealth wallet not initialised."
+          : "No Privy embedded wallet found.");
+      }
+
+      // Build current on-chain receiver set from localStorage
+      const currReceivers = buildCurrReceivers(chainId, senderAddress, tokenAddress, nowSecs);
+
+      // Auto-increment stream ID to avoid collisions
+      const streamId = params.streamId ?? nextStreamId(chainId, senderAddress, tokenAddress);
+      const config = packStreamConfig(streamId, amtPerSec, 0, durationSeconds);
+
+      // New receivers = current + the new one, sorted
+      const newReceivers = [...currReceivers, { accountId: receiverAccountId, config }]
+        .sort((a, b) => {
+          if (a.accountId < b.accountId) return -1;
+          if (a.accountId > b.accountId) return 1;
+          if (a.config < b.config) return -1;
+          if (a.config > b.config) return 1;
+          return 0;
+        });
 
       // --- public path: privy embedded wallet ---
 
@@ -85,7 +167,6 @@ export function useCreateStream() {
         }
 
         const provider = await embeddedWallet.getEthereumProvider();
-        const senderAddress = embeddedWallet.address as `0x${string}`;
 
         const walletClient = createWalletClient({
           account: senderAddress,
@@ -107,9 +188,9 @@ export function useCreateStream() {
           functionName: "setStreams",
           args: [
             tokenAddress,
-            [],
+            currReceivers,
             totalAmountWei as unknown as bigint,
-            [{ accountId: receiverAccountId, config }],
+            newReceivers,
             0,
             0,
             senderAddress,
@@ -129,6 +210,7 @@ export function useCreateStream() {
           tokenSymbol,
           totalAmount,
           amtPerSec: amtPerSec.toString(),
+          dripsStreamId: streamId,
           startTimestamp: streamStart,
           endTimestamp: streamEnd,
           isPrivate: false,
@@ -142,7 +224,7 @@ export function useCreateStream() {
         };
       }
 
-      // --- private path: stealth ERC-4337 Safe via WDK UserOperation ---
+      // --- private path: per-stream derived wallet via WDK UserOperation ---
 
       if (!stealthWallet.isReady) {
         throw new Error(
@@ -150,47 +232,56 @@ export function useCreateStream() {
         );
       }
 
-      await stealthWallet.approve({
-        token: tokenAddress,
-        spender: contracts.addressDriver,
-        amount: totalAmountWei,
-      });
+      // Each stream gets its own derived wallet for isolation
+      const walletIndex = nextWalletIndex(chainId);
+      const { address: streamWalletAddress } =
+        await stealthWallet.getAccountAtIndex(walletIndex);
 
-      const stealthAddress = stealthWallet.stealthAddress as `0x${string}`;
+      // Fund the per-stream wallet from the main stealth wallet
+      await stealthWallet.fundDerivedWallet(walletIndex, tokenAddress, totalAmountWei);
+
+      // Batch approve + setStreams into a single UserOp
+      const approveCalldata = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [contracts.addressDriver, totalAmountWei],
+      });
 
       const setStreamsCalldata = encodeFunctionData({
         abi: addressDriverAbi,
         functionName: "setStreams",
         args: [
           tokenAddress,
-          [],
+          [], // fresh wallet — no existing receivers
           totalAmountWei as unknown as bigint,
           [{ accountId: receiverAccountId, config }],
           0,
           0,
-          stealthAddress,
+          streamWalletAddress as `0x${string}`,
         ],
       });
 
-      const result = await stealthWallet.sendTransaction({
-        to: contracts.addressDriver,
-        data: setStreamsCalldata,
-        value: 0n,
-      });
+      const result = await stealthWallet.sendTransactionFrom(walletIndex, [
+        { to: tokenAddress, data: approveCalldata },
+        { to: contracts.addressDriver, data: setStreamsCalldata, value: 0n },
+      ]);
 
       addStream({
         id: crypto.randomUUID(),
         chainId,
-        accountId: stealthAddress,
+        accountId: streamWalletAddress,
         recipientAddress,
         recipientAccountId: receiverAccountId.toString(),
         tokenAddress,
         tokenSymbol,
         totalAmount,
         amtPerSec: amtPerSec.toString(),
+        dripsStreamId: streamId,
         startTimestamp: streamStart,
         endTimestamp: streamEnd,
         isPrivate: true,
+        walletIndex,
+        walletAddress: streamWalletAddress,
         txHash: result.hash as string,
         createdAt: new Date().toISOString(),
       });
@@ -202,8 +293,8 @@ export function useCreateStream() {
     },
 
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["streams"] });
-      queryClient.invalidateQueries({ queryKey: ["wallet-balances"] });
+      queryClient.invalidateQueries({ queryKey: ["localStreams"] });
+      queryClient.invalidateQueries({ queryKey: ["tokenBalance"] });
     },
   });
 }

@@ -7,9 +7,7 @@ export function useLogout() {
   const navigate = useNavigate();
 
   return useMutation({
-    mutationFn: async () => {
-      await privyLogout();
-    },
+    mutationFn: () => privyLogout(),
     onSuccess: () => {
       navigate({ to: "/" });
     },

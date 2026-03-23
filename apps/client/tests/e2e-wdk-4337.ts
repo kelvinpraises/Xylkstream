@@ -39,27 +39,27 @@ import { anvil } from "viem/chains";
 
 import WalletManagerEvmErc4337 from "@xylkstream/wdk-4337";
 
-import { erc20Abi } from "../src/utils/streams.js";
+import { erc20Abi } from "viem";
 
 // ═══════════════════════════════════════════════════════════════════════════════
 //                              CONFIGURATION
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const ADDRESSES = {
-  // AA infrastructure
+  // AA infrastructure (from deploy/output/localhost.json)
   entryPoint:           "0x0000000071727De22E5E9d8BAf0edAc6f37da032" as `0x${string}`,
-  safeSingleton:        "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0" as `0x${string}`,
-  safeProxyFactory:     "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9" as `0x${string}`,
-  safeModuleSetup:      "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9" as `0x${string}`,
-  safe4337Module:       "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707" as `0x${string}`,
-  multiSend:            "0x0165878a594ca255338adfa4d48449f69242eb8f" as `0x${string}`,
-  multiSendCallOnly:    "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853" as `0x${string}`,
-  fallbackHandler:      "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6" as `0x${string}`,
-  signMessageLib:       "0x8a791620dd6260079bf849dc5567adc3f2fdc318" as `0x${string}`,
-  createCall:           "0x610178da211fef7d417bc0e6fed39f05609ad788" as `0x${string}`,
-  simulateTxAccessor:   "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e" as `0x${string}`,
+  safeSingleton:        "0x1cf8d29422e1264787cba22589fc77f420fdb048" as `0x${string}`,
+  safeProxyFactory:     "0xa9a878ece38017405daa6fef6f55372a3774e981" as `0x${string}`,
+  safeModuleSetup:      "0x0a506308777a2b272fa78c95720e17530bbab1d9" as `0x${string}`,
+  safe4337Module:       "0xa8faf83e7dec6beec5cf460aa2a4433964f99887" as `0x${string}`,
+  multiSend:            "0x24f5b0ebb7742a074e7d9127d55733ea61cf22bf" as `0x${string}`,
+  multiSendCallOnly:    "0x1a5519bda3b677d1030af5ce471986f33f8e8b66" as `0x${string}`,
+  fallbackHandler:      "0x99f2a318aeb900c9c00d36e54fd9a0f1b520e847" as `0x${string}`,
+  signMessageLib:       "0x3fd2ed43201105763ddcf55ec1ecaac5c846f20c" as `0x${string}`,
+  createCall:           "0xac9d3fceac5703242663a434f5c8aa6c213ab967" as `0x${string}`,
+  simulateTxAccessor:   "0x2979b39572fd8e47168e2aa7caed7df46b609327" as `0x${string}`,
   // Tokens
-  mockUSDC:             "0x9a676e781a523b5d0c0e43731313a708cb607508" as `0x${string}`,
+  mockUSDC:             "0xbd5406cb7e46347d76c4b1963496c1365767d78c" as `0x${string}`,
 };
 
 // Anvil well-known account #0 — always pre-funded with 10 000 ETH

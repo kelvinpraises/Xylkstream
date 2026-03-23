@@ -10,7 +10,7 @@ import {
   getPublicClient,
 } from "@/utils/streams";
 import { useChain } from "@/providers/chain-provider";
-import { useStealthWallet } from "./use-stealth-wallet";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
 
 // --- types ---
 

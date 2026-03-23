@@ -6,6 +6,7 @@ import { Progress } from "@/components/atoms/progress";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -162,10 +163,13 @@ export function CSVBatchDialog() {
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="lowercase">send to multiple people</DialogTitle>
+          <DialogTitle>Send to Multiple People</DialogTitle>
+          <DialogDescription>
+            Upload a CSV file with recipients and amounts to batch-send payments.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-5">
           {/* Upload Zone */}
           {rows.length === 0 && (
             <>
@@ -177,7 +181,7 @@ export function CSVBatchDialog() {
                 onChange={(e) => handleFile(e.target.files?.[0])}
               />
               <div
-                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
                   isDragging
                     ? "border-primary/60 bg-primary/5"
                     : "border-muted-foreground/25 hover:border-primary/50"
@@ -195,21 +199,21 @@ export function CSVBatchDialog() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="w-8 h-8 text-muted-foreground/40 mx-auto mb-3" />
-                <p className="text-sm text-foreground lowercase mb-1">
-                  drop your csv file here or click to browse
+                <p className="text-sm text-foreground mb-1">
+                  Drop your CSV file here or click to browse
                 </p>
-                <p className="text-xs text-muted-foreground lowercase">
-                  columns: recipient, amount, token
+                <p className="text-xs text-muted-foreground">
+                  Columns: recipient, amount, token
                 </p>
               </div>
 
               {/* Example CSV */}
-              <div className="rounded-lg border border-border p-4">
-                <div className="text-xs text-muted-foreground lowercase mb-2">example csv format</div>
+              <div className="rounded-xl border border-border p-4">
+                <div className="text-xs text-muted-foreground mb-2">Example CSV format</div>
                 <pre className="text-xs font-mono text-muted-foreground">
 {`recipient,amount,token
-0x031891A6...abcd,1000,AlphaUSD
-0xAcF8dBD0...ef01,500,pathUSD`}
+0x031891A6...abcd,1000,USDC
+0xAcF8dBD0...ef01,500,USDT`}
                 </pre>
               </div>
             </>
@@ -221,28 +225,28 @@ export function CSVBatchDialog() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <FileText className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground lowercase">{fileName}</span>
-                  <Badge variant="secondary" className="lowercase">
+                  <span className="text-sm text-foreground">{fileName}</span>
+                  <Badge variant="secondary">
                     {rows.length} {rows.length === 1 ? "row" : "rows"}
                   </Badge>
                 </div>
                 {!sending && results.length === 0 && (
-                  <Button variant="ghost" size="sm" onClick={handleReset} className="lowercase">
-                    clear
+                  <Button variant="ghost" size="sm" onClick={handleReset}>
+                    Clear
                   </Button>
                 )}
               </div>
 
-              <div className="rounded-lg border border-border overflow-hidden max-h-[300px] overflow-y-auto">
+              <div className="rounded-xl border border-border overflow-hidden max-h-[300px] overflow-y-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
-                      <th className="text-left p-3 text-xs text-muted-foreground lowercase font-medium">#</th>
-                      <th className="text-left p-3 text-xs text-muted-foreground lowercase font-medium">recipient</th>
-                      <th className="text-left p-3 text-xs text-muted-foreground lowercase font-medium">amount</th>
-                      <th className="text-left p-3 text-xs text-muted-foreground lowercase font-medium">token</th>
+                      <th className="text-left p-3 text-xs text-muted-foreground font-medium">#</th>
+                      <th className="text-left p-3 text-xs text-muted-foreground font-medium">Recipient</th>
+                      <th className="text-left p-3 text-xs text-muted-foreground font-medium">Amount</th>
+                      <th className="text-left p-3 text-xs text-muted-foreground font-medium">Token</th>
                       {results.length > 0 && (
-                        <th className="text-left p-3 text-xs text-muted-foreground lowercase font-medium">status</th>
+                        <th className="text-left p-3 text-xs text-muted-foreground font-medium">Status</th>
                       )}
                     </tr>
                   </thead>
@@ -254,7 +258,7 @@ export function CSVBatchDialog() {
                           <td className="p-3 text-muted-foreground text-xs">{i + 1}</td>
                           <td className="p-3 font-mono text-xs truncate max-w-[200px]">{row.recipient}</td>
                           <td className="p-3 font-mono text-xs">{row.amount}</td>
-                          <td className="p-3 text-xs lowercase">{row.token}</td>
+                          <td className="p-3 text-xs">{row.token}</td>
                           {results.length > 0 && (
                             <td className="p-3">
                               {result ? (
@@ -284,25 +288,25 @@ export function CSVBatchDialog() {
               {sending && (
                 <div className="space-y-2">
                   <Progress value={progress} />
-                  <p className="text-xs text-muted-foreground text-center lowercase">
-                    sending {Math.round(progress)}% ({results.length}/{rows.length})
+                  <p className="text-xs text-muted-foreground text-center">
+                    Sending {Math.round(progress)}% ({results.length}/{rows.length})
                   </p>
                 </div>
               )}
 
               {/* Results Summary */}
               {results.length > 0 && !sending && (
-                <div className="rounded-lg border border-border p-4 space-y-2">
-                  <div className="text-sm font-medium lowercase">all done!</div>
+                <div className="rounded-xl border border-border p-4 space-y-2">
+                  <div className="text-sm font-medium">All done!</div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5 text-sm">
                       <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      <span className="lowercase">{successCount} succeeded</span>
+                      <span>{successCount} succeeded</span>
                     </div>
                     {failCount > 0 && (
                       <div className="flex items-center gap-1.5 text-sm">
                         <XCircle className="w-4 h-4 text-destructive" />
-                        <span className="lowercase">{failCount} failed</span>
+                        <span>{failCount} failed</span>
                       </div>
                     )}
                   </div>
@@ -313,28 +317,28 @@ export function CSVBatchDialog() {
               <div className="flex justify-end gap-2">
                 {results.length > 0 && !sending ? (
                   <>
-                    <Button variant="outline" onClick={handleReset} className="lowercase">
-                      new batch
+                    <Button variant="outline" onClick={handleReset}>
+                      New Batch
                     </Button>
-                    <Button onClick={() => setDialogOpen(false)} className="lowercase">
-                      done
+                    <Button onClick={() => setDialogOpen(false)}>
+                      Done
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={handleReset} disabled={sending} className="lowercase">
-                      cancel
+                    <Button variant="outline" onClick={handleReset} disabled={sending}>
+                      Cancel
                     </Button>
-                    <Button onClick={handleSendAll} disabled={sending} className="lowercase">
+                    <Button onClick={handleSendAll} disabled={sending}>
                       {sending ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          sending...
+                          Sending...
                         </>
                       ) : (
                         <>
                           <Upload className="w-4 h-4 mr-2" />
-                          send all ({rows.length})
+                          Send All ({rows.length})
                         </>
                       )}
                     </Button>

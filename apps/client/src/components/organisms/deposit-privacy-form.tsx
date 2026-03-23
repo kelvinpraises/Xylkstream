@@ -1,4 +1,4 @@
-// deposit-privacy-form.tsx — shields USDC into the privacy pool via approve → deposit → ZK proof → remint pipeline
+// deposit-privacy-form.tsx — shields tokens into the privacy pool via approve → deposit → ZK proof → remint pipeline
 
 import { useState, useCallback } from "react";
 import {
@@ -29,7 +29,7 @@ import {
 } from "@/components/molecules/dialog";
 import { Button } from "@/components/atoms/button";
 import { toast } from "sonner";
-import { useStealthWalletContext } from "@/providers/stealth-wallet-provider";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
 import { usePrivacyEngine } from "@/hooks/use-privacy-engine";
 import { erc20Abi, zwerc20Abi, getPublicClient } from "@/utils/streams";
 import { useChain } from "@/providers/chain-provider";
@@ -40,6 +40,8 @@ export interface DepositPrivacyDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
+
+type TokenChoice = "usdt" | "usdc";
 
 type Step =
   | "enter-amount"
@@ -63,39 +65,39 @@ const STEP_META: Record<
   { label: string; description: string; icon: React.ComponentType<{ className?: string }> }
 > = {
   "enter-amount": {
-    label: "enter amount",
-    description: "choose how much usdc to shield",
+    label: "Enter Amount",
+    description: "Choose how much to shield",
     icon: Lock,
   },
   approving: {
-    label: "approving",
-    description: "privy wallet approves usdc spend",
+    label: "Approving",
+    description: "Privy wallet approves spend",
     icon: CheckCircle2,
   },
   shielding: {
-    label: "shielding",
-    description: "depositing to privacy pool",
+    label: "Shielding",
+    description: "Depositing to privacy pool",
     icon: Layers,
   },
   "preparing-proof": {
-    label: "preparing proof",
-    description: "generating zk proof (~2–4s)",
+    label: "Preparing Proof",
+    description: "Generating ZK proof (~2–4s)",
     icon: Cpu,
   },
   reminting: {
-    label: "reminting",
-    description: "sending to stealth wallet",
+    label: "Reminting",
+    description: "Sending to stealth wallet",
     icon: Zap,
   },
   done: {
-    label: "done",
-    description: "funds are shielded",
+    label: "Done",
+    description: "Funds are shielded",
     icon: Sparkles,
   },
 };
 
-// USDC on BSC — 18 decimals (queried dynamically in a real app; hardcoded here for speed)
-const USDC_DECIMALS = 18;
+// Token decimals — 18 for both USDC and USDT
+const TOKEN_DECIMALS = 18;
 const TOKEN_ID = 0n;
 
 // --- step indicator ---
@@ -157,7 +159,7 @@ function StepIndicator({ current }: { current: Step }) {
 export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialogProps) {
   const { ready } = usePrivy();
   const { wallets } = useWallets();
-  const { stealthAddress, sendTransaction, isReady: stealthReady } = useStealthWalletContext();
+  const { stealthAddress, sendTransaction, isReady: stealthReady } = useStealthWallet();
   const {
     generateSecret,
     storeSecret,
@@ -171,8 +173,12 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
 
   const [step, setStep] = useState<Step>("enter-amount");
   const [amount, setAmount] = useState("");
+  const [selectedToken, setSelectedToken] = useState<TokenChoice>("usdt");
   const [error, setError] = useState<string | null>(null);
   const [stealthBalance, setStealthBalance] = useState<string | null>(null);
+
+  const tokenSymbol = selectedToken === "usdc" ? "USDC" : "USDT";
+  const zwTokenSymbol = selectedToken === "usdc" ? "zwUSDC" : "zwUSDT";
 
   // reset state when dialog closes
 
@@ -181,6 +187,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
       if (!nextOpen) {
         setStep("enter-amount");
         setAmount("");
+        setSelectedToken("usdt");
         setError(null);
         setStealthBalance(null);
       }
@@ -196,27 +203,34 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
 
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setError("please enter a valid amount");
+      setError("Please enter a valid amount.");
       return;
     }
     if (!stealthReady || !stealthAddress) {
-      setError("stealth wallet not ready — unlock it from the dashboard first");
+      setError("Stealth wallet not ready — unlock it from the dashboard first.");
       return;
     }
 
-    const zwUSDCAddress = chainConfig.contracts.zwUsdc;
-    const usdcAddress = chainConfig.contracts.mockUsdc;
+    const zwTokenAddress =
+      selectedToken === "usdc"
+        ? chainConfig.contracts.zwUsdc
+        : chainConfig.contracts.zwUsdt;
 
-    const amountWei = parseUnits(amount, USDC_DECIMALS);
+    const tokenAddress =
+      selectedToken === "usdc"
+        ? chainConfig.contracts.mockUsdc
+        : chainConfig.contracts.mockUsdt;
 
-    // step 2: approve USDC from the public Privy wallet
+    const amountWei = parseUnits(amount, TOKEN_DECIMALS);
+
+    // step 2: approve token from the public Privy wallet
 
     setStep("approving");
 
     let walletClient: WalletClient;
     try {
       const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
-      if (!embeddedWallet) throw new Error("no privy embedded wallet found — please log in");
+      if (!embeddedWallet) throw new Error("No Privy embedded wallet found — please log in.");
 
       const provider = await embeddedWallet.getEthereumProvider();
       walletClient = createWalletClient({
@@ -226,20 +240,20 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
       });
 
       await walletClient.writeContract({
-        address: usdcAddress,
+        address: tokenAddress,
         abi: erc20Abi,
         functionName: "approve",
-        args: [zwUSDCAddress, amountWei],
+        args: [zwTokenAddress, amountWei],
         account: embeddedWallet.address as `0x${string}`,
         chain: chainConfig.chain,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "approval failed");
+      setError(err instanceof Error ? err.message : "Approval failed.");
       setStep("enter-amount");
       return;
     }
 
-    // step 3: derive privacy address + deposit to zwUSDC
+    // step 3: derive privacy address + deposit to zw token
 
     setStep("shielding");
 
@@ -251,7 +265,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
       const embeddedWallet = wallets.find((w) => w.walletClientType === "privy")!;
 
       await walletClient.writeContract({
-        address: zwUSDCAddress,
+        address: zwTokenAddress,
         abi: zwerc20Abi,
         functionName: "deposit",
         args: [privacySecretData.privacyAddress as `0x${string}`, TOKEN_ID, amountWei, "0x"],
@@ -259,7 +273,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
         chain: chainConfig.chain,
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "deposit failed");
+      setError(err instanceof Error ? err.message : "Deposit failed.");
       setStep("enter-amount");
       return;
     }
@@ -276,7 +290,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
       // Resolve the leaf index by scanning on-chain leaves for our privacy address
       const publicClient = getPublicClient(chainConfig.chain);
       const leafCount = (await publicClient.readContract({
-        address: zwUSDCAddress,
+        address: zwTokenAddress,
         abi: zwerc20Abi,
         functionName: "getCommitLeafCount",
         args: [TOKEN_ID],
@@ -284,7 +298,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
 
       if (leafCount > 0n) {
         const [, addresses, amounts] = (await publicClient.readContract({
-          address: zwUSDCAddress,
+          address: zwTokenAddress,
           abi: zwerc20Abi,
           functionName: "getCommitLeaves",
           args: [TOKEN_ID, 0n, leafCount],
@@ -307,7 +321,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
       );
       remintData = result.remintData;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "proof generation failed");
+      setError(err instanceof Error ? err.message : "Proof generation failed.");
       setStep("enter-amount");
       return;
     }
@@ -336,13 +350,13 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
       });
 
       await sendTransaction({
-        to: zwUSDCAddress,
+        to: zwTokenAddress,
         data: calldata,
       });
 
       markSpent(privacySecretData.privacyAddress);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "remint failed");
+      setError(err instanceof Error ? err.message : "Remint failed.");
       setStep("enter-amount");
       return;
     }
@@ -352,20 +366,21 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
     try {
       const publicClient = getPublicClient(chainConfig.chain);
       const bal = (await publicClient.readContract({
-        address: zwUSDCAddress,
+        address: zwTokenAddress,
         abi: zwerc20Abi,
         functionName: "balanceOf",
         args: [stealthAddress as `0x${string}`],
       })) as bigint;
-      setStealthBalance(formatUnits(bal, USDC_DECIMALS));
+      setStealthBalance(formatUnits(bal, TOKEN_DECIMALS));
     } catch {
       // Non-fatal — we can still show done without the balance
     }
 
     setStep("done");
-    toast.success("funds shielded to your stealth wallet");
+    toast.success("Funds shielded to your stealth wallet.");
   }, [
     amount,
+    selectedToken,
     wallets,
     stealthReady,
     stealthAddress,
@@ -388,10 +403,10 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
     step === "reminting";
 
   const proofProgressLabel: Record<typeof proofProgress, string> = {
-    idle: "initialising...",
-    "building-tree": "rebuilding merkle tree...",
-    "generating-proof": "generating groth16 proof...",
-    encoding: "encoding calldata...",
+    idle: "Initialising...",
+    "building-tree": "Rebuilding Merkle tree...",
+    "generating-proof": "Generating Groth16 proof...",
+    encoding: "Encoding calldata...",
   };
 
   // --- render ---
@@ -400,9 +415,9 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="lowercase flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-amber-400" />
-            shield funds
+            Shield Funds
           </DialogTitle>
         </DialogHeader>
 
@@ -414,14 +429,36 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
           {step === "enter-amount" && (
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                wrap usdc into zwUSDC and remint to your private stealth wallet.
-                your public wallet is used to deposit; the stealth wallet receives the shielded tokens.
+                Wrap tokens into their private version and remint to your stealth wallet.
+                Your public wallet is used to deposit; the stealth wallet receives the shielded tokens.
               </p>
+
+              {/* Token selector */}
+              <div className="flex gap-2">
+                {(["usdt", "usdc"] as TokenChoice[]).map((token) => {
+                  const isActive = selectedToken === token;
+                  return (
+                    <button
+                      key={token}
+                      type="button"
+                      onClick={() => setSelectedToken(token)}
+                      className={[
+                        "flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-all",
+                        isActive
+                          ? "bg-amber-500/20 border-amber-500/60 text-amber-400"
+                          : "bg-stone-800 border-stone-700 text-stone-500 hover:text-stone-400",
+                      ].join(" ")}
+                    >
+                      {token.toUpperCase()}
+                    </button>
+                  );
+                })}
+              </div>
 
               {/* Amount input */}
               <div className="space-y-1.5">
-                <label className="text-xs text-muted-foreground lowercase">
-                  amount
+                <label className="text-xs text-muted-foreground">
+                  Amount
                 </label>
                 <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 focus-within:border-amber-500/50 transition-colors">
                   <input
@@ -434,7 +471,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
                     className="flex-1 bg-transparent text-foreground text-lg font-mono outline-none placeholder:text-muted-foreground/40"
                   />
                   <span className="text-sm text-muted-foreground font-medium shrink-0">
-                    USDC
+                    {tokenSymbol}
                   </span>
                 </div>
               </div>
@@ -444,7 +481,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
                 <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
                   <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                   <p className="text-xs text-amber-300/80">
-                    stealth wallet not unlocked — enter your password on the dashboard first
+                    Stealth wallet not unlocked — enter your password on the dashboard first.
                   </p>
                 </div>
               )}
@@ -462,19 +499,18 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
                 <Button
                   variant="outline"
                   size="sm"
-                  className="lowercase"
                   onClick={() => handleOpenChange(false)}
                 >
-                  cancel
+                  Cancel
                 </Button>
                 <Button
                   size="sm"
                   disabled={!ready || !amount || parseFloat(amount) <= 0 || !stealthReady}
                   onClick={handleDeposit}
-                  className="lowercase bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 hover:from-amber-500 hover:to-amber-400 border-0"
+                  className="bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 hover:from-amber-500 hover:to-amber-400 border-0"
                 >
                   <ShieldCheck className="w-4 h-4 mr-1.5" />
-                  deposit
+                  Deposit
                 </Button>
               </div>
             </div>
@@ -487,7 +523,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
               <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3">
                 <Loader2 className="w-5 h-5 text-amber-400 animate-spin shrink-0 mt-0.5" />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-amber-300 lowercase">
+                  <p className="text-sm font-medium text-amber-300">
                     {STEP_META[step].label}
                   </p>
                   <p className="text-xs text-amber-300/60 mt-0.5">
@@ -509,7 +545,7 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
                   return (
                     <div key={s} className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Icon className="w-3.5 h-3.5 text-amber-500/60 shrink-0" />
-                      <span className="lowercase">{meta.label} — done</span>
+                      <span>{meta.label} — done</span>
                     </div>
                   );
                 })}
@@ -534,18 +570,18 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
                   <ShieldCheck className="w-6 h-6 text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-foreground font-medium lowercase">funds shielded</p>
+                  <p className="text-foreground font-medium">Funds shielded</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {amount} usdc is now in your stealth wallet as zwUSDC
+                    {amount} {tokenSymbol} is now in your stealth wallet as {zwTokenSymbol}
                   </p>
                 </div>
 
                 {stealthBalance !== null && (
                   <div className="rounded-lg border border-border bg-card px-4 py-3">
-                    <p className="text-xs text-muted-foreground mb-1 lowercase">stealth balance</p>
+                    <p className="text-xs text-muted-foreground mb-1">Stealth balance</p>
                     <p className="font-mono text-xl text-amber-400 font-light">
                       {parseFloat(stealthBalance).toFixed(4)}{" "}
-                      <span className="text-sm text-muted-foreground">zwUSDC</span>
+                      <span className="text-sm text-muted-foreground">{zwTokenSymbol}</span>
                     </p>
                   </div>
                 )}
@@ -554,10 +590,9 @@ export function DepositPrivacyDialog({ open, onOpenChange }: DepositPrivacyDialo
               <div className="flex justify-end">
                 <Button
                   size="sm"
-                  className="lowercase"
                   onClick={() => handleOpenChange(false)}
                 >
-                  done
+                  Done
                 </Button>
               </div>
             </div>

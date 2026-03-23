@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 import { Button } from "@/components/atoms/button";
 import { Card } from "@/components/molecules/card";
 import { Badge } from "@/components/atoms/badge";
 import { Progress } from "@/components/atoms/progress";
 import { Separator } from "@/components/atoms/separator";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft, ExternalLink, Shield } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { getStreams } from "@/store/stream-store";
+import { useLocalStreams } from "@/store/stream-store";
 import { useChain } from "@/providers/chain-provider";
+import { useNow } from "@/hooks/use-now";
 
 export const Route = createFileRoute("/streams/$streamId")({
   component: StreamDetailPage,
@@ -17,10 +17,11 @@ export const Route = createFileRoute("/streams/$streamId")({
 function StreamDetailPage() {
   const { streamId } = Route.useParams();
   const navigate = useNavigate();
-  const { chainConfig, chainId } = useChain();
-  const [nowSecs] = useState(() => Math.floor(Date.now() / 1000));
+  const { chainConfig } = useChain();
+  const nowSecs = useNow();
 
-  const stream = getStreams(chainId).find((s) => s.id === streamId);
+  const { streams } = useLocalStreams();
+  const stream = streams.find((s) => s.id === streamId);
 
   if (!stream) {
     return (
@@ -70,9 +71,10 @@ function StreamDetailPage() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="outline">BSC</Badge>
+              <Badge variant="outline">{chainConfig.chain.name}</Badge>
               {stream.isPrivate && (
-                <Badge variant="outline" className="text-amber-400 border-amber-400/40">
+                <Badge variant="outline" className="text-amber-400 border-amber-400/40 flex items-center gap-1">
+                  <Shield className="w-3 h-3 fill-amber-400/20" />
                   private
                 </Badge>
               )}
@@ -127,6 +129,44 @@ function StreamDetailPage() {
             </div>
           </div>
         </Card>
+
+        {/* Derived Wallet (Private Streams) */}
+        {stream.isPrivate && stream.walletAddress && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+              <h3 className="font-medium lowercase">private wallet</h3>
+            </div>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Derived Wallet</span>
+                <a
+                  href={`${chainConfig.chain.blockExplorers?.default?.url ?? ""}/address/${stream.walletAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline font-mono flex items-center gap-1"
+                >
+                  {stream.walletAddress.slice(0, 10)}...{stream.walletAddress.slice(-8)}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+              {stream.walletIndex !== undefined && (
+                <>
+                  <Separator />
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Derivation Index</span>
+                    <span className="font-mono">{stream.walletIndex}</span>
+                  </div>
+                </>
+              )}
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Privacy</span>
+                <span className="text-amber-400">Isolated balance (stealth wallet)</span>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Transaction Info */}
         {stream.txHash && (

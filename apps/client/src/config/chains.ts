@@ -1,8 +1,15 @@
 // chains.ts — multichain registry. All contracts default to shared CREATE2 addresses.
 // Per-chain definitions only override what's actually different.
 
-import { localhost } from "viem/chains";
-import type { Chain } from "viem";
+import { localhost as _localhost } from "viem/chains";
+import { defineChain, type Chain } from "viem";
+
+// Anvil uses chainId 31337, but viem's localhost defaults to 1337
+const localhost = defineChain({
+  ..._localhost,
+  id: 31337,
+  name: "Localhost",
+});
 
 // --- shared defaults (CREATE2 deterministic — same on every EVM chain) ---
 
@@ -10,30 +17,30 @@ const DEFAULTS = {
   // ERC-4337
   entryPoint: "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
 
-  // protocol
-  dripsProxy: "0x59b670e9fa9d0a427751af201d676719a970857b",
-  addressDriver: "0x09635f643e140090a9a8dcd712ed6285858cebef",
+  // protocol (from deploy/output/localhost.json)
+  dripsProxy: "0xbda023ca88c4bd40ad558f1c61c3465c3fad8d10",
+  addressDriver: "0x84419f7069b80d627cbadf243540cc9241340db4",
 
   // privacy
-  zwUsdc: "0x0b306bf915c4d645ff596e518faf3f9669b97016",
-  zwUsdt: "0x959922be3caee4b8cd9a407cc3ac1c251c2007b1",
+  zwUsdc: "0x5c949fc2919bbcf6a756a03a0331c7d7dacec01c",
+  zwUsdt: "0xb630acc4b9bfc09cc8c5fca33a84cade539dfaf3",
   privacyRouter: "0x0000000000000000000000000000000000000001",
 
   // Safe 4337 modules
-  safeSingleton: "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
-  safeProxyFactory: "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
-  safe4337Module: "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707",
-  safeModuleSetup: "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9",
-  multiSend: "0x0165878a594ca255338adfa4d48449f69242eb8f",
-  multiSendCallOnly: "0xa513e6e4b8f2a923d98304ec87f64353c4d5c853",
-  fallbackHandler: "0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6",
-  signMessageLib: "0x8a791620dd6260079bf849dc5567adc3f2fdc318",
-  createCall: "0x610178da211fef7d417bc0e6fed39f05609ad788",
-  simulateTxAccessor: "0xb7f8bc63bbcad18155201308c8f3540b07f84f5e",
+  safeSingleton: "0x1cf8d29422e1264787cba22589fc77f420fdb048",
+  safeProxyFactory: "0xa9a878ece38017405daa6fef6f55372a3774e981",
+  safe4337Module: "0xa8faf83e7dec6beec5cf460aa2a4433964f99887",
+  safeModuleSetup: "0x0a506308777a2b272fa78c95720e17530bbab1d9",
+  multiSend: "0x24f5b0ebb7742a074e7d9127d55733ea61cf22bf",
+  multiSendCallOnly: "0x1a5519bda3b677d1030af5ce471986f33f8e8b66",
+  fallbackHandler: "0x99f2a318aeb900c9c00d36e54fd9a0f1b520e847",
+  signMessageLib: "0x3fd2ed43201105763ddcf55ec1ecaac5c846f20c",
+  createCall: "0xac9d3fceac5703242663a434f5c8aa6c213ab967",
+  simulateTxAccessor: "0x2979b39572fd8e47168e2aa7caed7df46b609327",
 
   // tokens
-  mockUsdc: "0x0dcd1bf9a1b36ce34237eeafef220932846bcd82",
-  mockUsdt: "0x9a676e781a523b5d0c0e43731313a708cb607508",
+  mockUsdc: "0xbd5406cb7e46347d76c4b1963496c1365767d78c",
+  mockUsdt: "0xe81a302fe5a58000452e2fca3ae9edd154df6c92",
 } as const satisfies Record<string, `0x${string}`>;
 
 export type Contracts = typeof DEFAULTS;
@@ -61,13 +68,13 @@ function define(
 }
 
 export const supportedChains: Record<number, ChainConfig> = {
-  [localhost.id]: define(localhost, "http://localhost:4848/bundler"),
+  [localhost.id]: define(localhost, "http://localhost:4848/bundler/localhost"),
 
   // Adding a new chain where everything is the same:
-  //   [bscTestnet.id]: define(bscTestnet, "https://api.xylkstream.xyz/bundler"),
+  //   [polygonZkEvmTestnet.id]: define(polygonZkEvmTestnet, "https://api.xylkstream.xyz/bundler"),
   //
   // If one contract differs on a chain:
-  //   [bsc.id]: define(bsc, "https://api.xylkstream.xyz/bundler", {
+  //   [mainnet.id]: define(mainnet, "https://api.xylkstream.xyz/bundler", {
   //     privacyRouter: "0xDIFFERENT_ON_THIS_CHAIN",
   //   }),
 };
@@ -97,7 +104,7 @@ export interface KnownToken {
 
 export function getSendableTokens(contracts: Contracts): KnownToken[] {
   return [
-    { symbol: "USDC", address: contracts.mockUsdc, contractKey: "mockUsdc" },
     { symbol: "USDT", address: contracts.mockUsdt, contractKey: "mockUsdt" },
+    { symbol: "USDC", address: contracts.mockUsdc, contractKey: "mockUsdc" },
   ];
 }

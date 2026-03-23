@@ -51,3 +51,20 @@ export function truncateAddress(address: string, chars = 4): string {
 export function formatPercentage(value: number, decimals = 2): string {
   return `${value.toFixed(decimals)}%`;
 }
+
+/**
+ * Convert raw ERC-4337 / RPC errors into user-friendly messages.
+ */
+export function friendlyTxError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (raw.includes("AA25")) return "A previous transaction is still processing. Please wait a moment and try again.";
+  if (raw.includes("AA21")) return "Wallet not deployed yet. This will resolve after your first transaction confirms.";
+  if (raw.includes("AA34")) return "Paymaster sponsorship failed. Please try again.";
+  if (raw.includes("AA41")) return "Paymaster deposit too low. Contact support.";
+  if (raw.includes("AA50") || raw.includes("AA51")) return "Insufficient funds to cover transaction fees.";
+  if (raw.includes("insufficient funds")) return "Insufficient funds.";
+  if (raw.includes("fetch failed") || raw.includes("Failed to fetch")) return "Network error — check your connection and try again.";
+  if (raw.includes("0xacfdb444") || raw.includes("ExecutionFailed")) return "Transaction failed during simulation. Please try again.";
+  if (raw.includes("User rejected") || raw.includes("user rejected")) return "Transaction was cancelled.";
+  return "Something went wrong. Please try again.";
+}
