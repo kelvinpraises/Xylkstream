@@ -17,6 +17,7 @@ COPY apps/server/src ./server/src
 COPY apps/client/package.json apps/client/package-lock.json ./apps/client/
 RUN cd apps/client && rm -f package-lock.json && npm install
 COPY apps/client ./apps/client
+RUN ls apps/client/node_modules/vite-plugin-node-polyfills/shims/buffer/dist/ 2>/dev/null || echo "NO SHIMS"
 RUN cd apps/client && npx vite build
 
 EXPOSE 4848
