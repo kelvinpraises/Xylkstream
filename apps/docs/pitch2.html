@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Xylkstream — Pitch Deck</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400;1,600;1,700&family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:"Inter",system-ui,-apple-system,sans-serif;background:#020204;color:#fff;-webkit-font-smoothing:antialiased}
+
+/* Aurora */
+.aurora{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.aurora .blob{position:absolute;border-radius:50%;mix-blend-mode:screen}
+.aurora .b1{top:-10%;left:-10%;width:50vw;height:50vw;background:rgba(251,191,36,0.18);filter:blur(120px);animation:aur 20s ease-in-out infinite}
+.aurora .b2{top:10%;right:-10%;width:60vw;height:60vw;background:rgba(244,63,94,0.12);filter:blur(120px);animation:aur 20s ease-in-out infinite 2s}
+.aurora .b3{bottom:-10%;left:20%;width:70vw;height:50vw;background:rgba(124,58,237,0.12);filter:blur(140px);animation:aur 20s ease-in-out infinite 4s}
+@keyframes aur{0%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-50px) scale(1.1)}66%{transform:translate(-20px,20px) scale(0.9)}100%{transform:translate(0,0) scale(1)}}
+
+/* Slide system */
+.deck{position:relative;width:100vw;height:100vh;z-index:10}
+.slide{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity 0.7s cubic-bezier(0.16,1,0.3,1)}
+.slide.active{opacity:1;pointer-events:auto}
+.slide.active .fin{animation:finUp .9s cubic-bezier(.16,1,.3,1) both}
+.slide.active .fin.d1{animation-delay:.1s}
+.slide.active .fin.d2{animation-delay:.2s}
+.slide.active .fin.d3{animation-delay:.35s}
+.slide.active .fin.d4{animation-delay:.5s}
+.slide.active .fin.d5{animation-delay:.65s}
+.slide.active .fin.d6{animation-delay:.8s}
+@keyframes finUp{from{opacity:0;transform:translateY(24px);filter:blur(6px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+/* Typography */
+.brand{font-family:"Cormorant Garamond",serif;font-weight:300;font-style:italic;background:linear-gradient(135deg,#fef3c7 0%,#ffffff 40%,#fecdd3 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-3px;line-height:1}
+.brand.glow{animation:brandGlow 4s ease-in-out infinite}
+@keyframes brandGlow{0%,100%{filter:drop-shadow(0 0 30px rgba(251,191,36,0.15))}50%{filter:drop-shadow(0 0 60px rgba(251,191,36,0.35))}}
+.headline{font-weight:800;letter-spacing:-2.5px;line-height:1.05;color:#fff}
+.sub{font-weight:400;color:rgba(148,163,184,0.7);line-height:1.5}
+.accent{color:#fbbf24}
+.accent-grad{background:linear-gradient(135deg,#fbbf24,#fb7185);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.kicker{font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(251,191,36,0.5);margin-bottom:12px}
+.bul{font-size:18px;color:rgba(148,163,184,0.5);line-height:1.55;padding-left:20px;position:relative;margin-bottom:12px}
+.bul::before{content:'';position:absolute;left:0;top:9px;width:4px;height:4px;border-radius:50%;background:rgba(251,191,36,0.4)}
+.bul strong{color:rgba(255,255,255,0.75);font-weight:600}
+
+/* Progress & Nav */
+.prog{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,#d97706,#fb7185);z-index:100;transition:width .4s ease}
+.page-info{position:fixed;bottom:28px;left:36px;z-index:100;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:500;color:rgba(148,163,184,0.3);letter-spacing:.5px}
+.page-info .n{color:rgba(251,191,36,0.5);font-weight:700;font-size:15px}
+.nav{position:fixed;bottom:28px;right:36px;z-index:100;display:flex;gap:8px}
+.nav button{width:40px;height:40px;border-radius:50%;border:1px solid rgba(148,163,184,0.12);background:rgba(255,255,255,0.03);backdrop-filter:blur(12px);color:rgba(148,163,184,0.5);font-size:16px;cursor:pointer;transition:all .2s ease;display:flex;align-items:center;justify-content:center}
+.nav button:hover{border-color:rgba(251,191,36,0.3);color:#fbbf24;background:rgba(251,191,36,0.05)}
+
+/* Cards */
+.card{padding:28px 24px;border:1px solid rgba(148,163,184,0.07);border-radius:16px;background:rgba(255,255,255,0.015);transition:all .3s ease}
+.card:hover{border-color:rgba(251,191,36,0.12);transform:translateY(-2px)}
+
+/* Tag chips */
+.chip{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:4px 12px;border-radius:100px;border:1px solid rgba(251,191,36,0.15);color:rgba(251,191,36,0.6);background:rgba(251,191,36,0.03)}
+.chip.v{border-color:rgba(167,139,250,0.2);color:rgba(167,139,250,0.6);background:rgba(167,139,250,0.03)}
+.chip.r{border-color:rgba(244,63,94,0.15);color:rgba(244,63,94,0.6);background:rgba(244,63,94,0.03)}
+
+/* ── SLIDE SPECIFIC ── */
+
+/* HERO */
+.s-hero{align-items:center;justify-content:center;text-align:center;padding:60px}
+
+/* TEAM */
+.team-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:24px}
+.team-card{padding:36px 32px;border:1px solid rgba(148,163,184,0.07);border-radius:20px;background:rgba(255,255,255,0.015);display:flex;flex-direction:column;gap:10px;transition:all .3s ease}
+.team-card:hover{border-color:rgba(251,191,36,0.12);transform:translateY(-2px)}
+.avatar{width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;margin-bottom:4px}
+
+/* SUMMARY pillars */
+.pillars{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;flex:1}
+.pill{padding:40px 28px;text-align:center;border-right:1px solid rgba(148,163,184,0.06);display:flex;flex-direction:column;align-items:center;gap:14px}
+.pill:last-child{border-right:none}
+.pill .num{font-size:56px;font-weight:900;letter-spacing:-3px;line-height:1;background:linear-gradient(180deg,rgba(251,191,36,0.35),rgba(251,191,36,0.04));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.pill.v .num{background:linear-gradient(180deg,rgba(167,139,250,0.4),rgba(167,139,250,0.04));-webkit-background-clip:text;background-clip:text}
+.pill.i .num{background:linear-gradient(180deg,rgba(244,63,94,0.4),rgba(244,63,94,0.04));-webkit-background-clip:text;background-clip:text}
+.pill h3{font-size:22px;font-weight:700;letter-spacing:-.4px}
+
+/* ROADMAP */
+.road-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:20px}
+.road-card{padding:28px 22px;border-radius:16px;display:flex;flex-direction:column;gap:10px;position:relative;overflow:hidden}
+.road-card .badge{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:3px 10px;border-radius:100px;width:fit-content}
+.road-card h4{font-size:17px;font-weight:700;letter-spacing:-.3px}
+.road-card p{font-size:13px;line-height:1.6;color:rgba(148,163,184,0.5)}
+.road-card.amber{border:1px solid rgba(251,191,36,0.12);background:rgba(251,191,36,0.025)}
+.road-card.violet{border:1px solid rgba(167,139,250,0.12);background:rgba(167,139,250,0.025)}
+.road-card.rose{border:1px solid rgba(244,63,94,0.12);background:rgba(244,63,94,0.025)}
+.road-card.teal{border:1px solid rgba(20,184,166,0.12);background:rgba(20,184,166,0.025)}
+.road-card.sky{border:1px solid rgba(56,189,248,0.12);background:rgba(56,189,248,0.025)}
+.road-card.stone{border:1px solid rgba(148,163,184,0.08);background:rgba(148,163,184,0.01)}
+
+/* ── PRINT / PDF ── */
+@media print{
+    html,body{overflow:visible !important;height:auto !important;background:#020204 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .aurora,#pdfBtn,.prog,.page-info,.nav{display:none !important}
+    .deck{position:static !important;width:100% !important;height:auto !important}
+    .slide{position:relative !important;opacity:1 !important;pointer-events:auto !important;width:100vw !important;min-height:100vh !important;page-break-after:always !important;break-after:page !important;display:flex !important;overflow:visible !important}
+    .slide .fin{animation:none !important;opacity:1 !important;transform:none !important;filter:none !important}
+}
+
+@media(max-width:900px){
+    .team-grid,.pillars,.road-grid{grid-template-columns:1fr}
+    .pill{border-right:none;border-bottom:1px solid rgba(148,163,184,0.06)}
+}
+</style>
+</head>
+<body>
+
+<div class="aurora"><div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div></div>
+<div class="prog" id="prog"></div>
+
+<div class="deck">
+
+<!-- ══════════════════════════════
+     SLIDE 1 — HERO / INTRODUCTION
+     ══════════════════════════════ -->
+<div class="slide s-hero active">
+    <div class="brand glow fin d1" style="font-size:clamp(72px,12vw,160px)">Xylkstream</div>
+    <p class="fin d2" style="font-size:clamp(18px,2.2vw,26px);color:rgba(191,219,254,0.4);font-weight:300;margin-top:14px;letter-spacing:-.2px">Send money that grows while it travels. Nobody knows who sent it.</p>
+    <div class="fin d3" style="margin-top:36px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <span class="chip">Streaming Payments</span>
+        <span class="chip v">ZK Privacy</span>
+        <span class="chip r">AI Agents</span>
+        <span class="chip">Auto-Yield</span>
+    </div>
+    <p class="fin d4" style="margin-top:32px;font-size:13px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.25)">Polkadot Hub Hackathon — March 2026</p>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 2 — TEAM
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <p class="kicker fin d1">The Team</p>
+    <h2 class="headline fin d2" style="font-size:44px;margin-bottom:6px">Built by people who ship.</h2>
+    <p class="sub fin d2" style="font-size:18px;margin-bottom:8px">Two builders. Two disciplines. One protocol.</p>
+    <div class="team-grid fin d3" style="flex:1;align-content:center">
+
+        <!-- Kelvin -->
+        <div class="team-card">
+            <div class="avatar" style="background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.15);color:#fbbf24">K</div>
+            <div>
+                <h3 style="font-size:22px;font-weight:800;letter-spacing:-.5px;color:#fff">Kelvin Praises Omotola</h3>
+                <p style="font-size:13px;color:rgba(251,191,36,0.5);font-weight:600;letter-spacing:.3px;margin-top:2px">Contracts · ZK Circuits · Protocol Architecture</p>
+            </div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.55);line-height:1.65;margin-top:4px">
+                Designed the diamond-facet Drips split, ERC-8065 ZWERC20 implementation, Groth16 circuits, and the full protocol stack from bundler to YieldManager.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                <span class="chip" style="font-size:10px">Sentiment Drips</span>
+                <span class="chip" style="font-size:10px">Vidrune</span>
+                <span class="chip" style="font-size:10px">Crystalrohr</span>
+            </div>
+        </div>
+
+        <!-- Liz -->
+        <div class="team-card">
+            <div class="avatar" style="background:rgba(244,63,94,0.08);border:1px solid rgba(244,63,94,0.15);color:#fb7185">L</div>
+            <div>
+                <h3 style="font-size:22px;font-weight:800;letter-spacing:-.5px;color:#fff">Liz Ona</h3>
+                <p style="font-size:13px;color:rgba(244,63,94,0.5);font-weight:600;letter-spacing:.3px;margin-top:2px">Frontend · UI/UX · Brand</p>
+            </div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.55);line-height:1.65;margin-top:4px">
+                Crafted the warm dark visual language, the friends-and-family narrative, and every pixel of the product UI from login to stream dashboard.
+            </p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+                <span class="chip r" style="font-size:10px">Soundsphere</span>
+                <span class="chip r" style="font-size:10px">Content Strategist</span>
+                <span class="chip r" style="font-size:10px">Brand</span>
+            </div>
+            <p style="font-size:13px;color:rgba(148,163,184,0.3);margin-top:10px;font-style:italic">"Liz made the whole thing feel human — took dense protocol mechanics and turned them into something anyone would want to use."</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 3 — THE PROBLEM
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%;justify-content:center">
+    <p class="kicker fin d1">The Problem</p>
+    <h2 class="headline fin d2" style="font-size:clamp(36px,5vw,54px);max-width:720px;margin-bottom:32px">$1 trillion sent P2P in 2024. Every dollar sat idle. Every payment was public.</h2>
+    <div class="fin d3" style="display:flex;gap:28px;flex-wrap:wrap">
+        <div class="card" style="flex:1;min-width:220px">
+            <div style="font-size:40px;font-weight:900;letter-spacing:-2px;color:#fbbf24;margin-bottom:6px">0%</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.5);line-height:1.55"><strong style="color:rgba(255,255,255,0.7)">Zero yield</strong> — money in transit earns nothing while it waits to be claimed</p>
+        </div>
+        <div class="card" style="flex:1;min-width:220px">
+            <div style="font-size:40px;font-weight:900;letter-spacing:-2px;color:#fb7185;margin-bottom:6px">Public</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.5);line-height:1.55"><strong style="color:rgba(255,255,255,0.7)">No privacy</strong> — your employer, landlord, therapist, all linked on-chain forever</p>
+        </div>
+        <div class="card" style="flex:1;min-width:220px">
+            <div style="font-size:40px;font-weight:900;letter-spacing:-2px;color:#a78bfa;margin-bottom:6px">Lump</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.5);line-height:1.55"><strong style="color:rgba(255,255,255,0.7)">Wrong shape</strong> — lump-sum transfers have lower wellbeing outcomes vs. continuous streaming (Banerjee et al. 2023)</p>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 4 — PROJECT SUMMARY
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <p class="kicker fin d1">Project Summary</p>
+    <h2 class="headline fin d2" style="font-size:44px;margin-bottom:6px">Three problems. One protocol.</h2>
+    <p class="sub fin d2" style="font-size:18px;margin-bottom:24px">Xylkstream is a privacy-first streaming payment protocol where <span style="color:#fbbf24">every dollar earns yield in transit</span>, managed by an AI agent, controlled by you.</p>
+    <div class="pillars fin d3" style="flex:1;align-content:center">
+        <div class="pill">
+            <div class="num">01</div>
+            <h3 style="color:#fbbf24">Streaming Payments</h3>
+            <p style="font-size:15px;color:rgba(148,163,184,0.5);line-height:1.6;max-width:260px">Continuous per-second money flows. Allowances, payroll, group treasuries — programmable as a <strong style="color:rgba(255,255,255,0.65)">single on-chain primitive.</strong></p>
+        </div>
+        <div class="pill v">
+            <div class="num">02</div>
+            <h3 style="color:#a78bfa">ZK Privacy</h3>
+            <p style="font-size:15px;color:rgba(148,163,184,0.5);line-height:1.6;max-width:260px">Stealth wallets + E2E encrypted circles + ERC-8065 ZWERC20. <strong style="color:rgba(255,255,255,0.65)">Privacy is the substrate</strong> — not a toggle.</p>
+        </div>
+        <div class="pill i">
+            <div class="num">03</div>
+            <h3 style="color:#fb7185">AI Yield Agent</h3>
+            <p style="font-size:15px;color:rgba(148,163,184,0.5);line-height:1.6;max-width:260px">Autonomous agent writes Solidity strategies, sandboxes them, proposes deployment. <strong style="color:rgba(255,255,255,0.65)">Agent proposes. Human approves. Browser signs.</strong></p>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 5 — HOW IT WORKS (deep)
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <p class="kicker fin d1">How It Works</p>
+    <h2 class="headline fin d2" style="font-size:40px;margin-bottom:24px">End-to-end: from social login to yield.</h2>
+    <div class="fin d3" style="display:flex;gap:20px;flex:1;align-content:center;flex-wrap:wrap">
+
+        <div class="card" style="flex:1;min-width:200px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(251,191,36,0.5);margin-bottom:8px">Step 1</div>
+            <h4 style="font-size:17px;font-weight:700;letter-spacing:-.3px;color:#fbbf24;margin-bottom:6px">Login → Stealth Wallet</h4>
+            <p style="font-size:13px;color:rgba(148,163,184,0.5);line-height:1.6">Privy social login. One <code style="color:rgba(251,191,36,0.6);font-size:12px">signMessage</code> derives a 32-byte seed. WDK creates an ERC-4337 Safe with zero on-chain history. Paymaster sponsors all gas.</p>
+        </div>
+
+        <div class="card" style="flex:1;min-width:200px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(167,139,250,0.5);margin-bottom:8px">Step 2</div>
+            <h4 style="font-size:17px;font-weight:700;letter-spacing:-.3px;color:#a78bfa;margin-bottom:6px">Create a Circle</h4>
+            <p style="font-size:13px;color:rgba(148,163,184,0.5);line-height:1.6">Sender generates an x25519 keypair. Invite link carries the public key. Members encrypt their stealth address for the sender only. Server stores ciphertext it cannot read.</p>
+        </div>
+
+        <div class="card" style="flex:1;min-width:200px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(244,63,94,0.5);margin-bottom:8px">Step 3</div>
+            <h4 style="font-size:17px;font-weight:700;letter-spacing:-.3px;color:#fb7185;margin-bottom:6px">Deposit → ZK Shield</h4>
+            <p style="font-size:13px;color:rgba(148,163,184,0.5);line-height:1.6">USDC deposited → minted as zwUSDC at a privacy address. Groth16 proof (2.6s in browser) remints to stream recipients. No on-chain link between sender and stream.</p>
+        </div>
+
+        <div class="card" style="flex:1;min-width:200px">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(20,184,166,0.5);margin-bottom:8px">Step 4</div>
+            <h4 style="font-size:17px;font-weight:700;letter-spacing:-.3px;color:#2dd4bf;margin-bottom:6px">AI Manages Yield</h4>
+            <p style="font-size:13px;color:rgba(148,163,184,0.5);line-height:1.6">Agent connects via MCP. Writes Solidity strategies. Compiled in-process by <code style="color:rgba(20,184,166,0.6);font-size:12px">solc-js</code>, tested in a v8 isolate. Proposes deployment. You approve once.</p>
+        </div>
+
+    </div>
+    <div class="fin d4" style="margin-top:16px;padding:14px 20px;border:1px solid rgba(148,163,184,0.06);border-radius:10px;background:rgba(255,255,255,0.01);font-size:14px;color:rgba(148,163,184,0.4);text-align:center">
+        Privacy overhead: <strong style="color:rgba(167,139,250,0.6)">~$0.46 per stream</strong> — one-time cost. Ongoing streaming adds zero overhead.
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 6 — TECH STACK
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <p class="kicker fin d1">Stack &amp; Architecture</p>
+    <h2 class="headline fin d2" style="font-size:40px;margin-bottom:24px">Every layer purpose-built.</h2>
+    <div class="fin d3" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;align-content:center">
+        <div class="card">
+            <h4 style="font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(251,191,36,0.5);margin-bottom:10px">Contracts</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.55);line-height:1.7">Foundry · Solidity 0.8.20 · Diamond proxy (DripsRouter → FacetA/B) · YieldManager · ZWERC20 · Groth16Verifier · PoseidonT3</p>
+        </div>
+        <div class="card">
+            <h4 style="font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(167,139,250,0.5);margin-bottom:10px">Privacy</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.55);line-height:1.7">ERC-8065 ZWERC20 · Circom circuits · snarkjs Groth16 · Poseidon hash · depth-20 Merkle tree · Rundler self-hosted bundler</p>
+        </div>
+        <div class="card">
+            <h4 style="font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(244,63,94,0.5);margin-bottom:10px">Server</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.55);line-height:1.7">Express 5 · TypeScript ESM · Viem · Privy auth · Kysely + Turso · BullMQ + Redis · MCP SDK · device-auth (TV-code flow)</p>
+        </div>
+        <div class="card">
+            <h4 style="font-size:14px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(20,184,166,0.5);margin-bottom:10px">Client</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.55);line-height:1.7">React 19 · TanStack Router + Query · WDK ERC-4337 · Privy React auth · Tailwind 4 · Framer Motion · Radix UI · Vite</p>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 7 — JUDGING CRITERIA FIT
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <p class="kicker fin d1">Judging Criteria Fit</p>
+    <h2 class="headline fin d2" style="font-size:40px;margin-bottom:24px">Built against the criteria.</h2>
+    <div class="fin d3" style="display:flex;flex-direction:column;gap:14px;flex:1;justify-content:center">
+
+        <div style="display:flex;gap:20px;align-items:flex-start;padding:20px 24px;border:1px solid rgba(251,191,36,0.1);border-radius:14px;background:rgba(251,191,36,0.02)">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(251,191,36,0.5);flex-shrink:0;margin-top:2px;width:110px">Innovation</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.6);line-height:1.6">First protocol to use ERC-8065 as Layer 0 (not an addon). Autonomous agent that writes Solidity, not just picks from a menu. Stealth wallet derivation from a Privy signMessage — no raw key needed.</p>
+        </div>
+
+        <div style="display:flex;gap:20px;align-items:flex-start;padding:20px 24px;border:1px solid rgba(167,139,250,0.1);border-radius:14px;background:rgba(167,139,250,0.02)">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(167,139,250,0.5);flex-shrink:0;margin-top:2px;width:110px">Technical</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.6);line-height:1.6">Full ZK stack (circuit → prover → verifier → on-chain). Diamond proxy contracts. ERC-4337 Smart accounts. MCP agent SDK with device-auth. Sandboxed strategy compilation in workerd v8.</p>
+        </div>
+
+        <div style="display:flex;gap:20px;align-items:flex-start;padding:20px 24px;border:1px solid rgba(244,63,94,0.1);border-radius:14px;background:rgba(244,63,94,0.02)">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(244,63,94,0.5);flex-shrink:0;margin-top:2px;width:110px">Impact</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.6);line-height:1.6">$1T idle P2P money made productive. Privacy for real humans — not just privacy theater. Streaming payments proven to improve wellbeing outcomes (Banerjee et al. 2023, Davis 2025).</p>
+        </div>
+
+        <div style="display:flex;gap:20px;align-items:flex-start;padding:20px 24px;border:1px solid rgba(20,184,166,0.1);border-radius:14px;background:rgba(20,184,166,0.02)">
+            <div style="font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:rgba(20,184,166,0.5);flex-shrink:0;margin-top:2px;width:110px">Execution</div>
+            <p style="font-size:15px;color:rgba(148,163,184,0.6);line-height:1.6">Fully working end-to-end: contracts deployed, ZK circuits proven, MCP agent connected, frontend live. Not a prototype — a functional protocol with a real UX.</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 8 — FUTURE ROADMAP
+     ══════════════════════════════ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%">
+    <p class="kicker fin d1">Future Roadmap</p>
+    <h2 class="headline fin d2" style="font-size:40px;margin-bottom:6px">What we learned. Where we go next.</h2>
+    <p class="sub fin d2" style="font-size:17px;margin-bottom:20px">Key learnings from the build — and the features that matter most if we keep going.</p>
+
+    <div class="road-grid fin d3">
+
+        <!-- From TODO -->
+        <div class="road-card amber">
+            <span class="badge" style="background:rgba(251,191,36,0.1);color:rgba(251,191,36,0.7)">Next Up</span>
+            <h4 style="color:#fde68a">Shareable Claims Page</h4>
+            <p>The claims link should go to the <em>recipient</em>, not the sender. A shareable URL the streamer sends so anyone can claim without navigating the dashboard.</p>
+        </div>
+
+        <div class="road-card violet">
+            <span class="badge" style="background:rgba(167,139,250,0.1);color:rgba(167,139,250,0.7)">Next Up</span>
+            <h4 style="color:#c4b5fd">Stream Notifications</h4>
+            <p>Email / push / on-chain event listener. Recipients should know when money starts flowing to them — without polling the chain themselves.</p>
+        </div>
+
+        <div class="road-card teal">
+            <span class="badge" style="background:rgba(20,184,166,0.1);color:rgba(20,184,166,0.7)">Expansion</span>
+            <h4 style="color:#5eead4">Cross-Chain Streaming</h4>
+            <p>Bridge integration or multi-chain Drips deployments. Stream from BSC to Arbitrum. Let yield strategies reach deeper liquidity on any EVM chain.</p>
+        </div>
+
+        <div class="road-card rose">
+            <span class="badge" style="background:rgba(244,63,94,0.1);color:rgba(244,63,94,0.7)">Learning</span>
+            <h4 style="color:#fda4af">Separate Paymaster Keys</h4>
+            <p>Paymaster signer and bundler executor share the same key today. Production needs a dedicated <code style="font-size:11px;color:rgba(244,63,94,0.6)">PAYMASTER_SIGNER_KEY</code> — zero shared trust between roles.</p>
+        </div>
+
+        <div class="road-card sky">
+            <span class="badge" style="background:rgba(56,189,248,0.1);color:rgba(56,189,248,0.7)">Expansion</span>
+            <h4 style="color:#7dd3fc">More Yield Strategies</h4>
+            <p>Venus Protocol lending, Alpaca leveraged farming, and an open plugin system so the community can submit strategies. Agent gets smarter as the menu grows.</p>
+        </div>
+
+        <div class="road-card stone">
+            <span class="badge" style="background:rgba(148,163,184,0.07);color:rgba(148,163,184,0.4)">Polish</span>
+            <h4 style="color:rgba(255,255,255,0.65)">Error UX Hardening</h4>
+            <p>Apply <code style="font-size:11px;color:rgba(148,163,184,0.5)">friendlyTxError()</code> across remaining ~9 files. Replace raw toast errors with human-readable feedback everywhere in the app.</p>
+        </div>
+
+    </div>
+
+    <div class="fin d4" style="margin-top:16px;padding:14px 20px;border:1px solid rgba(148,163,184,0.06);border-radius:10px;background:rgba(255,255,255,0.01);font-size:14px;color:rgba(148,163,184,0.4);text-align:center">
+        Biggest learning: <strong style="color:rgba(255,255,255,0.5)">privacy and yield don't need to trade off.</strong> The ZK layer adds ~$0.46 once. The yield it enables compounds forever.
+    </div>
+</div>
+
+<!-- ══════════════════════════════
+     SLIDE 9 — CLOSING
+     ══════════════════════════════ -->
+<div class="slide" style="align-items:center;justify-content:center;text-align:center;padding:60px;display:flex;flex-direction:column">
+    <div class="brand glow fin d1" style="font-size:clamp(60px,10vw,130px);margin-bottom:14px">Xylkstream</div>
+    <p class="fin d2" style="font-size:20px;color:rgba(191,219,254,0.35);font-weight:300;margin-bottom:8px">The way friends and family move money.</p>
+    <p class="fin d3" style="font-size:16px;color:rgba(148,163,184,0.25);margin-bottom:40px;max-width:520px;line-height:1.6">Private. Productive. Continuous. Built by Kelvin Praises Omotola &amp; Liz Ona.</p>
+    <div class="fin d4" style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+        <span class="chip">Streaming Payments</span>
+        <span class="chip v">ZK Privacy — ERC-8065</span>
+        <span class="chip r">Autonomous AI Agent</span>
+        <span class="chip">Auto-Yield</span>
+        <span class="chip v">ERC-4337 Stealth Wallets</span>
+    </div>
+    <p class="fin d5" style="margin-top:36px;font-size:12px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.18)">Polkadot Hub Hackathon — March 2026</p>
+</div>
+
+</div><!-- /deck -->
+
+<!-- Page Info -->
+<div class="page-info">
+    <span>XYLKSTREAM</span>
+    <span class="n" id="pageNum">01</span>
+</div>
+
+<!-- Nav -->
+<div class="nav">
+    <button id="prev">&#8592;</button>
+    <button id="next">&#8594;</button>
+</div>
+
+<!-- PDF Export Button -->
+<button id="pdfBtn" onclick="exportPDF()" style="
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+    z-index:200;padding:10px 22px;border-radius:100px;
+    border:1px solid rgba(167,139,250,0.25);
+    background:rgba(167,139,250,0.06);
+    color:rgba(167,139,250,0.7);font-size:13px;font-weight:600;
+    font-family:inherit;cursor:pointer;letter-spacing:.5px;
+    transition:all .2s ease;backdrop-filter:blur(8px);
+" onmouseover="this.style.borderColor='rgba(167,139,250,0.5)';this.style.color='#c4b5fd'" onmouseout="this.style.borderColor='rgba(167,139,250,0.25)';this.style.color='rgba(167,139,250,0.7)'">
+    Export PDF
+</button>
+
+<script>
+(() => {
+    const slides = Array.from(document.querySelectorAll('.slide'));
+    const total = slides.length;
+    let cur = 0;
+    const prog = document.getElementById('prog');
+    const pageNum = document.getElementById('pageNum');
+
+    function go(n) {
+        if (n < 0 || n >= total) return;
+        slides[cur].classList.remove('active');
+        cur = n;
+        slides[cur].classList.add('active');
+        prog.style.width = ((cur / (total - 1)) * 100) + '%';
+        pageNum.textContent = String(cur + 1).padStart(2, '0');
+    }
+
+    document.getElementById('prev').addEventListener('click', () => go(cur - 1));
+    document.getElementById('next').addEventListener('click', () => go(cur + 1));
+    document.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); go(cur - 1); }
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); go(cur + 1); }
+    });
+
+    // Touch/swipe
+    let tx = 0;
+    document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+    document.addEventListener('touchend', e => {
+        const dx = e.changedTouches[0].clientX - tx;
+        if (Math.abs(dx) > 50) dx < 0 ? go(cur + 1) : go(cur - 1);
+    });
+})();
+
+function exportPDF() {
+    const slides = document.querySelectorAll('.slide');
+    const finEls = document.querySelectorAll('.fin');
+    finEls.forEach(el => { el.style.cssText += 'opacity:1!important;transform:none!important;filter:none!important;animation:none!important'; });
+    slides.forEach(s => { s.style.cssText += 'opacity:1!important;position:relative!important;pointer-events:auto!important'; });
+    window.print();
+    setTimeout(() => {
+        finEls.forEach(el => { el.style.cssText = el.style.cssText.replace(/opacity:[^;]+!important;|transform:[^;]+!important;|filter:[^;]+!important;|animation:[^;]+!important;/g, ''); });
+        slides.forEach((s, i) => {
+            s.style.cssText = s.style.cssText.replace(/opacity:[^;]+!important;|position:[^;]+!important;|pointer-events:[^;]+!important;/g, '');
+            if (!s.classList.contains('active')) s.style.opacity = '0';
+        });
+    }, 1500);
+}
+</script>
+</body>
+</html>

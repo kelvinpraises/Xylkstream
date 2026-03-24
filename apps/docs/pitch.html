@@ -743,6 +743,46 @@ body{
 </div>
 
 
+<!-- ═══ SLIDE 10 — PRIVACY ═══ -->
+<div class="slide" style="padding:60px 80px;display:flex;flex-direction:column;height:100%;overflow:hidden">
+    <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(167,139,250,0.5);margin-bottom:10px">Privacy Layer</p>
+    <h2 class="headline fin d2" style="font-size:44px;margin-bottom:8px">Nobody knows who sent it.</h2>
+    <p class="sub fin d2" style="font-size:18px;margin-bottom:28px;max-width:700px">Privacy is not a feature. It's the substrate. Everything is private by default — you turn it <em>off</em> only when you withdraw.</p>
+    <div class="fin d3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;flex:1;align-content:start">
+        <!-- Stealth Wallets -->
+        <div style="padding:28px 24px;border:1px solid rgba(167,139,250,0.1);border-radius:16px;background:rgba(167,139,250,0.02);display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:32px;font-weight:900;letter-spacing:-2px;color:#a78bfa">01</div>
+            <h4 style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:#c4b5fd">Stealth Wallets</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.5);line-height:1.6">Sign one message with Privy → derive a 32-byte seed → WDK creates an <strong style="color:rgba(255,255,255,0.65)">ERC-4337 Safe</strong> with zero on-chain history. Paymaster sponsors gas so no ETH link exists.</p>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(167,139,250,0.5);margin-top:auto">WDK + ERC-4337</div>
+        </div>
+        <!-- E2E Circles -->
+        <div style="padding:28px 24px;border:1px solid rgba(251,191,36,0.1);border-radius:16px;background:rgba(251,191,36,0.02);display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:32px;font-weight:900;letter-spacing:-2px;color:#fbbf24">02</div>
+            <h4 style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:#fde68a">E2E Circles</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.5);line-height:1.6">Every member's stealth address is <strong style="color:rgba(255,255,255,0.65)">encrypted with the sender's pubkey</strong>. The server stores ciphertext it can't read. A subpoena reveals nothing about who receives.</p>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(251,191,36,0.5);margin-top:auto">x25519 + NaCl Box</div>
+        </div>
+        <!-- ZK Layer -->
+        <div style="padding:28px 24px;border:1px solid rgba(244,63,94,0.1);border-radius:16px;background:rgba(244,63,94,0.02);display:flex;flex-direction:column;gap:12px">
+            <div style="font-size:32px;font-weight:900;letter-spacing:-2px;color:#fb7185">03</div>
+            <h4 style="font-size:18px;font-weight:700;letter-spacing:-.3px;color:#fda4af">ZK Privacy (ERC-8065)</h4>
+            <p style="font-size:14px;color:rgba(148,163,184,0.5);line-height:1.6">Deposit USDC → mint zwUSDC to a privacy address → <strong style="color:rgba(255,255,255,0.65)">Groth16 proof</strong> remints to any address with no on-chain link. Unlike Tornado Cash: any amount, any ERC20, partial remints.</p>
+            <div style="font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(244,63,94,0.5);margin-top:auto">Groth16 + Poseidon + Merkle</div>
+        </div>
+    </div>
+    <div class="fin d4" style="margin-top:20px;padding:16px 20px;border:1px solid rgba(148,163,184,0.06);border-radius:12px;background:rgba(255,255,255,0.01);display:flex;gap:32px;align-items:center">
+        <div style="text-align:center;flex-shrink:0">
+            <div style="font-size:28px;font-weight:900;letter-spacing:-2px;color:#a78bfa">~$0.46</div>
+            <div style="font-size:12px;color:rgba(148,163,184,0.4)">privacy overhead per stream</div>
+        </div>
+        <div style="width:1px;height:40px;background:rgba(148,163,184,0.06)"></div>
+        <div style="font-size:14px;color:rgba(148,163,184,0.45);line-height:1.6;flex:1">
+            <strong style="color:rgba(255,255,255,0.6)">The Privacy Sandwich:</strong> money enters public → goes private (ZK) → streams to encrypted recipients → exits public only when the recipient chooses. One-time ZK cost. Ongoing streaming adds zero overhead.
+        </div>
+    </div>
+</div>
+
 <!-- ═══ SLIDE 11 — DEMO ═══ -->
 <div class="slide s11">
     <p class="fin d1" style="font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(148,163,184,0.3);margin-bottom:16px">Live Demo</p>
@@ -899,6 +939,87 @@ body{
         window.addEventListener('resize',resize);
     }
 })();
+</script>
+
+<!-- PDF Export -->
+<style id="printStyles">
+@media print {
+    html, body { overflow: visible !important; height: auto !important; background: #020204 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .aurora, #ambientCanvas, .prog, .page-info, .nav, #pdfBtn { display: none !important; }
+    .deck { position: static !important; width: 100% !important; height: auto !important; }
+    .slide {
+        position: relative !important;
+        opacity: 1 !important;
+        pointer-events: auto !important;
+        width: 100vw !important;
+        min-height: 100vh !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        display: flex !important;
+        overflow: visible !important;
+    }
+    .slide.active .fin, .slide .fin {
+        animation: none !important;
+        opacity: 1 !important;
+        transform: none !important;
+        filter: none !important;
+    }
+}
+</style>
+
+<button id="pdfBtn" onclick="exportPDF()" style="
+    position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+    z-index:200;padding:10px 22px;border-radius:100px;
+    border:1px solid rgba(167,139,250,0.25);
+    background:rgba(167,139,250,0.06);
+    color:rgba(167,139,250,0.7);font-size:13px;font-weight:600;
+    font-family:inherit;cursor:pointer;letter-spacing:.5px;
+    transition:all .2s ease;backdrop-filter:blur(8px);
+" onmouseover="this.style.borderColor='rgba(167,139,250,0.5)';this.style.color='#c4b5fd'" onmouseout="this.style.borderColor='rgba(167,139,250,0.25)';this.style.color='rgba(167,139,250,0.7)'">
+    Export PDF
+</button>
+
+<script>
+function exportPDF() {
+    // Temporarily make all slides visible for print
+    const slides = document.querySelectorAll('.slide');
+    const finEls = document.querySelectorAll('.fin');
+
+    // Force all fin elements visible (bypass animation)
+    finEls.forEach(el => {
+        el.style.opacity = '1';
+        el.style.transform = 'none';
+        el.style.filter = 'none';
+        el.style.animation = 'none';
+    });
+
+    // Force all slides to show
+    slides.forEach(s => {
+        s.style.opacity = '1';
+        s.style.position = 'relative';
+        s.style.pointerEvents = 'auto';
+    });
+
+    window.print();
+
+    // Restore after print dialog closes
+    setTimeout(() => {
+        finEls.forEach(el => {
+            el.style.opacity = '';
+            el.style.transform = '';
+            el.style.filter = '';
+            el.style.animation = '';
+        });
+        slides.forEach(s => {
+            s.style.opacity = '';
+            s.style.position = '';
+            s.style.pointerEvents = '';
+            if (!s.classList.contains('active')) {
+                s.style.opacity = '0';
+            }
+        });
+    }, 1000);
+}
 </script>
 </body>
 </html>
