@@ -9,9 +9,9 @@ COPY apps/packages/wdk-4337 ./apps/packages/wdk-4337
 RUN cd apps/packages/wdk-4337 && npm ci
 
 # Server
-COPY apps/server/package.json apps/server/package-lock.json ./server/
-RUN cd server && npm ci --omit=dev --force && npm install --no-save @libsql/linux-x64-gnu
-COPY apps/server/src ./server/src
+COPY apps/server/package.json apps/server/package-lock.json ./apps/server/
+RUN cd apps/server && npm ci --omit=dev --force && npm install --no-save @libsql/linux-x64-gnu
+COPY apps/server/src ./apps/server/src
 COPY apps/contracts/deploy/output ./apps/contracts/deploy/output
 
 # Client (delete lockfile so npm resolves platform-correct native binaries)
@@ -33,4 +33,4 @@ RUN npm install -g serve
 EXPOSE 4848
 EXPOSE 3000
 
-CMD ["sh", "-c", "cd /app/server && node_modules/.bin/tsx src/server.ts & serve -s /app/apps/client/dist -l 3000 & wait"]
+CMD ["sh", "-c", "cd /app/apps/server && node_modules/.bin/tsx src/server.ts & serve -s /app/apps/client/dist -l 3000 & wait"]
