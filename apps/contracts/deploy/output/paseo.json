@@ -1,13 +1,13 @@
 {
-  "chain": "localhost",
-  "chainId": 31337,
-  "rpc": "http://127.0.0.1:8545",
-  "deployedAt": "2026-03-20T08:10:20.364Z",
+  "chain": "paseo",
+  "chainId": 420420417,
+  "rpc": "https://eth-rpc-testnet.polkadot.io",
+  "deployedAt": "2026-03-27T13:13:58.999Z",
   "deployer": "0x0a90a57905A85C88167F0A50018A8632f7E85eE3",
   "scopes": {
     "aa": {
       "status": "completed",
-      "deployedAt": "2026-03-27T12:53:52.079Z",
+      "deployedAt": "2026-03-27T13:19:45.415Z",
       "contracts": {
         "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
         "safeSingleton": "0x1cf8d29422e1264787cba22589fc77f420fdb048",
@@ -24,7 +24,7 @@
     },
     "privacy": {
       "status": "completed",
-      "deployedAt": "2026-03-27T12:54:20.466Z",
+      "deployedAt": "2026-03-27T13:20:06.671Z",
       "contracts": {
         "poseidonT3": "0xd7bb6fa8954363185b2a18e977148da14bb18725",
         "groth16Verifier": "0xb07ee9338902452c1320ab13c0f8184139c434a4",
@@ -36,7 +36,7 @@
     },
     "streaming": {
       "status": "completed",
-      "deployedAt": "2026-03-27T12:54:20.466Z",
+      "deployedAt": "2026-03-27T13:21:11.805Z",
       "contracts": {
         "facetA": "0xcd5419c80366b8befa24572182c505917bd7aa2d",
         "facetB": "0xc2e101e52eb69fd685194717b534953833882982",
@@ -50,12 +50,12 @@
     },
     "register": {
       "status": "completed",
-      "deployedAt": "2026-03-27T12:55:32.849Z",
+      "deployedAt": "2026-03-27T13:22:34.491Z",
       "contracts": {}
     },
     "paymaster": {
       "status": "completed",
-      "deployedAt": "2026-03-27T12:55:44.961Z",
+      "deployedAt": "2026-03-27T13:23:09.936Z",
       "contracts": {
         "verifyingPaymaster": "0x039581423128c87d33318c0419158e68f0857e47"
       }

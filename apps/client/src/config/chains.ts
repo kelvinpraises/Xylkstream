@@ -4,6 +4,17 @@
 import { localhost as _localhost } from "viem/chains";
 import { defineChain, type Chain } from "viem";
 
+const paseo = defineChain({
+  id: 420420417,
+  name: "Paseo",
+  nativeCurrency: { name: "PAS", symbol: "PAS", decimals: 18 },
+  rpcUrls: { default: { http: ["https://eth-rpc-testnet.polkadot.io"] } },
+  blockExplorers: {
+    default: { name: "Blockscout", url: "https://blockscout-testnet.polkadot.io" },
+  },
+  testnet: true,
+});
+
 // Anvil uses chainId 31337, but viem's localhost defaults to 1337
 const localhost = defineChain({
   ..._localhost,
@@ -17,13 +28,13 @@ const DEFAULTS = {
   // ERC-4337
   entryPoint: "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
 
-  // protocol (from deploy/output/localhost.json)
-  dripsProxy: "0xbda023ca88c4bd40ad558f1c61c3465c3fad8d10",
-  addressDriver: "0x84419f7069b80d627cbadf243540cc9241340db4",
+  // protocol (from deploy/output — same on localhost + paseo)
+  dripsProxy: "0x6000b3f7c52233a82f99a1c37dcf4ed00a6aaf46",
+  addressDriver: "0x7f1d8081c5d1a25ae989424635d55309009b3d68",
 
   // privacy
-  zwUsdc: "0x5c949fc2919bbcf6a756a03a0331c7d7dacec01c",
-  zwUsdt: "0xb630acc4b9bfc09cc8c5fca33a84cade539dfaf3",
+  zwUsdc: "0xf0007693eba473191416c55fbb7a487bb4a4dadf",
+  zwUsdt: "0x740cc0ec24eb667605e444e2fccb4bf46014c22b",
   privacyRouter: "0x0000000000000000000000000000000000000001",
 
   // Safe 4337 modules
@@ -70,13 +81,7 @@ function define(
 export const supportedChains: Record<number, ChainConfig> = {
   [localhost.id]: define(localhost, "http://localhost:4848/bundler/localhost"),
 
-  // Adding a new chain where everything is the same:
-  //   [polygonZkEvmTestnet.id]: define(polygonZkEvmTestnet, "https://api.xylkstream.xyz/bundler"),
-  //
-  // If one contract differs on a chain:
-  //   [mainnet.id]: define(mainnet, "https://api.xylkstream.xyz/bundler", {
-  //     privacyRouter: "0xDIFFERENT_ON_THIS_CHAIN",
-  //   }),
+  [paseo.id]: define(paseo, "https://api.xylkstream.xyz/bundler/paseo"),
 };
 
 // --- accessors ---
