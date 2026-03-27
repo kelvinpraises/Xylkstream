@@ -12,6 +12,7 @@ RUN cd apps/packages/wdk-4337 && npm ci
 COPY apps/server/package.json apps/server/package-lock.json ./server/
 RUN cd server && npm ci --omit=dev --force && npm install --no-save @libsql/linux-x64-gnu
 COPY apps/server/src ./server/src
+COPY apps/contracts/deploy/output ./apps/contracts/deploy/output
 
 # Client (delete lockfile so npm resolves platform-correct native binaries)
 COPY apps/client/package.json apps/client/package-lock.json ./apps/client/

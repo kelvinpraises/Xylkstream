@@ -3,4 +3,5 @@ apps/client/dist
 **/.env
 **/*.log
 apps/contracts
+!apps/contracts/deploy/output
 apps/pitch
