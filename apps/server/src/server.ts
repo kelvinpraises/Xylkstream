@@ -30,7 +30,7 @@ async function boot() {
   await initDatabase();
   console.log(`[xylkstream-server]: database initialized`);
 
-  const executorKey = process.env.BUNDLER_EXECUTOR_KEY;
+  const executorKey = process.env.OPERATOR_KEY;
   const paymasterSigners = new Map();
 
   for (const chain of chains) {
@@ -47,7 +47,7 @@ async function boot() {
         port: 0,
       });
     } else {
-      console.warn(`[xylkstream-server]: bundler disabled for ${chain.name} —`, !deployOutput ? "no deploy output" : !entryPoint ? "no EntryPoint" : "BUNDLER_EXECUTOR_KEY not set");
+      console.warn(`[xylkstream-server]: bundler disabled for ${chain.name} —`, !deployOutput ? "no deploy output" : !entryPoint ? "no EntryPoint" : "OPERATOR_KEY not set");
     }
 
     if (deployOutput && executorKey) {

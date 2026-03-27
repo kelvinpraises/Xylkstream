@@ -26,8 +26,8 @@ export async function deployPaymaster(
 
   const entryPoint = aa.contracts.entryPoint as Address;
 
-  // Owner = BUNDLER_EXECUTOR_KEY address (the signer who approves sponsorships)
-  const owner = (process.env.BUNDLER_EXECUTOR_ADDRESS ?? config.deployer) as Address;
+  // Owner/signer = OPERATOR_ADDRESS (same key does deploying, bundling, and paymaster signing)
+  const owner = (process.env.OPERATOR_ADDRESS ?? config.deployer) as Address;
   console.log(`  EntryPoint: ${entryPoint}`);
   console.log(`  Owner/signer: ${owner}`);
 
