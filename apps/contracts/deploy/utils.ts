@@ -1,10 +1,47 @@
-import { createPublicClient, createWalletClient, http, encodeAbiParameters, parseAbiParameters, keccak256, toHex, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
+import { createPublicClient, createWalletClient, http, encodeAbiParameters, parseAbiParameters, keccak256, toHex, parseEther, type Address, type Hex, type PublicClient, type WalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join, resolve } from "path";
 
 // Nick's deterministic deployer — present on Anvil and most EVM chains
 export const DETERMINISTIC_DEPLOYER = "0x4e59b44847b379578588920cA78FbF26c0B4956C" as Address;
+
+// Presigned keyless deployment tx for nick's factory.
+// Sender: 0x3fab184622dc19b6109349b94811493bf2a45362 (needs 0.01 ETH)
+const NICK_FACTORY_DEPLOYER = "0x3fab184622dc19b6109349b94811493bf2a45362" as Address;
+const NICK_FACTORY_RAW_TX =
+  "0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8152600101602090f31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222" as Hex;
+
+// Ensure nick's factory is deployed. If not, funds the keyless sender and broadcasts the presigned tx.
+export async function ensureNickFactory(
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+): Promise<void> {
+  const code = await publicClient.getCode({ address: DETERMINISTIC_DEPLOYER });
+  if (code && code !== "0x") return; // already deployed
+
+  console.log("⚠ Nick's factory not found — deploying it...");
+
+  // Fund the keyless deployer address
+  const fundHash = await walletClient.sendTransaction({
+    to: NICK_FACTORY_DEPLOYER,
+    value: parseEther("0.01"),
+  });
+  await publicClient.waitForTransactionReceipt({ hash: fundHash });
+
+  // Broadcast the presigned deployment tx
+  const deployHash = await publicClient.request({
+    method: "eth_sendRawTransaction",
+    params: [NICK_FACTORY_RAW_TX],
+  });
+  await publicClient.waitForTransactionReceipt({ hash: deployHash as Hex });
+
+  const deployed = await publicClient.getCode({ address: DETERMINISTIC_DEPLOYER });
+  if (!deployed || deployed === "0x") {
+    throw new Error("Failed to deploy nick's factory");
+  }
+  console.log("✓ Nick's factory deployed\n");
+}
 
 // Compute a fixed salt from a human-readable label
 export function labelSalt(label: string): Hex {

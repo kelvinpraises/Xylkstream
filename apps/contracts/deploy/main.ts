@@ -1,7 +1,8 @@
 import { parseArgs } from "node:util";
-import { type Address, type Hex } from "viem";
+import { type Address, type Hex, parseEther } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { defaultChains } from "./chains.js";
-import { createClients, readState, writeState, type DeployState, type ScopeFn, type ScopeResult } from "./utils.js";
+import { createClients, ensureNickFactory, readState, writeState, type DeployState, type ScopeFn, type ScopeResult } from "./utils.js";
 import { deployAA } from "./scopes/01-aa.js";
 import { deployPrivacy } from "./scopes/02-privacy.js";
 import { deployStreaming } from "./scopes/03-streaming.js";
@@ -59,6 +60,22 @@ async function deployToChain(chainName: string, rpc: string) {
   console.log(`Chain ID: ${chainId}`);
   console.log(`Deployer: ${deployer}\n`);
 
+  // On localhost (Anvil), auto-fund the deployer from Anvil account #0
+  if (chainId === 31337n || chainId === 31337) {
+    const ANVIL_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" as Hex;
+    const { walletClient: anvilWallet } = createClients(rpc, ANVIL_KEY);
+    const balance = await publicClient.getBalance({ address: deployer });
+    const target = parseEther("10");
+    if (balance < target) {
+      console.log(`⛽ Funding deployer with 10 ETH from Anvil account #0...`);
+      const hash = await anvilWallet.sendTransaction({ to: deployer, value: target });
+      await publicClient.waitForTransactionReceipt({ hash });
+      console.log(`✓ Deployer funded\n`);
+    } else {
+      console.log(`✓ Deployer already has ${Number(balance / 10n ** 18n)} ETH\n`);
+    }
+  }
+
   // Load or create state
   let state: DeployState = readState(chainName) ?? {
     chain: chainName,
@@ -70,6 +87,9 @@ async function deployToChain(chainName: string, rpc: string) {
   };
 
   const config = { chain: chainName, rpc, deployer };
+
+  // Ensure nick's factory is deployed (required for all CREATE2 deployments)
+  await ensureNickFactory(publicClient, walletClient);
 
   // Determine which scopes to run
   const scopesToRun = values.scope
