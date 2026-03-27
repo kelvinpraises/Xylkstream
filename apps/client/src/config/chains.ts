@@ -62,6 +62,7 @@ export interface ChainConfig {
   chain: Chain;
   contracts: Contracts;
   bundlerUrl: string;
+  paymasterUrl: string;
 }
 
 // --- chain registry ---
@@ -69,19 +70,29 @@ export interface ChainConfig {
 function define(
   chain: Chain,
   bundlerUrl: string,
+  paymasterUrl: string,
   overrides?: Partial<Contracts>,
 ): ChainConfig {
   return {
     chain,
     bundlerUrl,
+    paymasterUrl,
     contracts: { ...DEFAULTS, ...overrides },
   };
 }
 
 export const supportedChains: Record<number, ChainConfig> = {
-  [localhost.id]: define(localhost, "http://localhost:4848/bundler/localhost"),
+  [localhost.id]: define(
+    localhost,
+    "http://localhost:4848/bundler/localhost",
+    "http://localhost:4848/paymaster/localhost",
+  ),
 
-  [paseo.id]: define(paseo, "https://api.xylkstream.xyz/bundler/paseo"),
+  [paseo.id]: define(
+    paseo,
+    `${import.meta.env.VITE_API_URL}/bundler/paseo`,
+    `${import.meta.env.VITE_API_URL}/paymaster/paseo`,
+  ),
 };
 
 // --- accessors ---
