@@ -58,11 +58,18 @@ export type Contracts = typeof DEFAULTS;
 
 // --- types ---
 
+export interface GasOverrides {
+  verificationGasLimit?: bigint;
+  callGasLimit?: bigint;
+  preVerificationGas?: bigint;
+}
+
 export interface ChainConfig {
   chain: Chain;
   contracts: Contracts;
   bundlerUrl: string;
   paymasterUrl: string;
+  gasOverrides?: GasOverrides;
 }
 
 // --- chain registry ---
@@ -71,13 +78,14 @@ function define(
   chain: Chain,
   bundlerUrl: string,
   paymasterUrl: string,
-  overrides?: Partial<Contracts>,
+  opts?: { contracts?: Partial<Contracts>; gasOverrides?: GasOverrides },
 ): ChainConfig {
   return {
     chain,
     bundlerUrl,
     paymasterUrl,
-    contracts: { ...DEFAULTS, ...overrides },
+    contracts: { ...DEFAULTS, ...opts?.contracts },
+    gasOverrides: opts?.gasOverrides,
   };
 }
 
@@ -92,6 +100,14 @@ export const supportedChains: Record<number, ChainConfig> = {
     paseo,
     `${import.meta.env.VITE_API_URL}/bundler/paseo`,
     `${import.meta.env.VITE_API_URL}/paymaster/paseo`,
+    {
+      // Substrate proof_size limits cause Alto's estimation to underreport gas
+      gasOverrides: {
+        verificationGasLimit: 500_000n,
+        callGasLimit: 200_000n,
+        preVerificationGas: 100_000n,
+      },
+    },
   ),
 };
 

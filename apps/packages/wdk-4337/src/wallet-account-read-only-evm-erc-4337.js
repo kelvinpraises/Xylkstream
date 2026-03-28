@@ -550,11 +550,9 @@ export default class WalletAccountReadOnlyEvmErc4337 extends WalletAccountReadOn
       if (isPimlico) {
         this._feeEstimator = new PimlicoFeeEstimator()
       } else {
-        const chainId = await this._getChainId()
-
         this._feeEstimator = new GenericFeeEstimator(
           this._config.provider,
-          `0x${chainId.toString(16)}`
+          this._config.gasOverrides ?? {}
         )
       }
     }

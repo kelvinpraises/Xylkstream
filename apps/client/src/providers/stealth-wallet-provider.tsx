@@ -85,6 +85,7 @@ function useStealthWalletInternal() {
       isSponsored: true as const,
       useNativeCoins: false as const,
       paymasterUrl,
+      gasOverrides: chainConfig.gasOverrides,
       safe4337ModuleAddress: contracts.safe4337Module,
       safeModulesSetupAddress: contracts.safeModuleSetup,
       contractNetworks: {
