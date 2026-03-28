@@ -58,6 +58,15 @@ export type Contracts = typeof DEFAULTS;
 
 // --- types ---
 
+/**
+ * Minimum gas floors passed to GenericFeeEstimator. Only needed for chains
+ * where Alto's eth_estimateUserOperationGas returns underestimates (e.g.
+ * Substrate/Polkadot chains with proof_size weight limits, or zkEVM chains
+ * with different gas metering). If a new chain's UserOps fail with
+ * "arithmetic underflow" or "ExecutionFailed" during handleOps, add
+ * gasOverrides here — the estimator will use whichever value is higher
+ * (estimated vs override).
+ */
 export interface GasOverrides {
   verificationGasLimit?: bigint;
   callGasLimit?: bigint;
