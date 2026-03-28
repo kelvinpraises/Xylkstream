@@ -237,10 +237,20 @@ export function useCreateStream() {
       const { address: streamWalletAddress } =
         await stealthWallet.getAccountAtIndex(walletIndex);
 
-      // Fund the per-stream wallet from the main stealth wallet
-      await stealthWallet.fundDerivedWallet(walletIndex, tokenAddress, totalAmountWei);
+      // Step 1: Fund the per-stream wallet from the main stealth wallet
+      const fundResult = await stealthWallet.fundDerivedWallet(walletIndex, tokenAddress, totalAmountWei);
+      await stealthWallet.waitForUserOp(fundResult.hash as string);
 
-      // Batch approve + setStreams into a single UserOp
+      // Step 2: Deploy the sub-wallet Safe (nonce 0 — factory creates it)
+      // Kept separate from step 3 to stay under Substrate proof_size weight limits.
+      const deployResult = await stealthWallet.sendTransactionFrom(walletIndex, {
+        to: streamWalletAddress,
+        data: "0x",
+        value: 0n,
+      });
+      await stealthWallet.waitForUserOp(deployResult.hash as string);
+
+      // Step 3: Approve + setStreams (Safe is now deployed, lighter UserOp)
       const approveCalldata = encodeFunctionData({
         abi: erc20Abi,
         functionName: "approve",

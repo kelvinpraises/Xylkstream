@@ -241,12 +241,12 @@ function useStealthWalletInternal() {
       functionName: 'transfer',
       args: [derivedAddress as `0x${string}`, amount],
     });
-    const result = await accountRef.current.sendTransaction({ to: tokenAddress, data: transferData, value: 0n });
-    // Wait for the funding UserOp to be mined before returning —
-    // callers (e.g. stream creation) depend on tokens being available.
-    await waitForUserOpReceipt(result.hash as string, chainConfig.bundlerUrl);
-    return result;
-  }, [getAccountAtIndex, chainConfig.bundlerUrl]);
+    return accountRef.current.sendTransaction({ to: tokenAddress, data: transferData, value: 0n });
+  }, [getAccountAtIndex]);
+
+  const waitForUserOp = useCallback(async (hash: string): Promise<void> => {
+    await waitForUserOpReceipt(hash, chainConfig.bundlerUrl);
+  }, [chainConfig.bundlerUrl]);
 
   const dispose = useCallback(() => {
     sessionStorage.removeItem(SESSION_SECRET_KEY);
@@ -275,6 +275,7 @@ function useStealthWalletInternal() {
     sendTransactionFrom,
     getTokenBalanceAt,
     fundDerivedWallet,
+    waitForUserOp,
     dispose,
     account: accountRef.current,
   };
