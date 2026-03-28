@@ -10,12 +10,31 @@ import type {
   TransactionResult,
   ApproveOptions,
 } from '@xylkstream/wdk-4337';
-import { config } from '@/config';
 import { useChain } from '@/providers/chain-provider';
 
 const STEALTH_DERIVATION_PATH = "0'/0/0";
 const STEALTH_DOMAIN = 'xylkstream-stealth-v1';
 const SESSION_SECRET_KEY = 'xylkstream_stealth_secret';
+
+/** Poll the bundler until a UserOp is mined. */
+async function waitForUserOpReceipt(hash: string, bundlerUrl: string, timeoutMs = 60_000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const resp = await fetch(bundlerUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0", id: 1,
+        method: "eth_getUserOperationReceipt",
+        params: [hash],
+      }),
+    });
+    const json = await resp.json();
+    if (json.result) return;
+    await new Promise(r => setTimeout(r, 2_000));
+  }
+  throw new Error(`UserOp ${hash.slice(0, 10)}... not mined within ${timeoutMs / 1000}s`);
+}
 
 export interface StealthWalletState {
   isReady: boolean;
@@ -53,19 +72,19 @@ function useStealthWalletInternal() {
 
   // Build wallet manager from raw secret bytes (shared by derive + restore)
   const initFromSecret = useCallback(async (secret: Uint8Array) => {
-    const { chain, contracts } = chainConfig;
+    const { chain, contracts, bundlerUrl, paymasterUrl } = chainConfig;
     const chainKey = String(chain.id);
     const rpcUrl = chain.rpcUrls.default.http[0];
 
     const wdkConfig = {
       chainId: chain.id,
       provider: rpcUrl,
-      bundlerUrl: `${config.API_URL}/bundler/${chain.name.toLowerCase()}`,
+      bundlerUrl,
       entryPointAddress: contracts.entryPoint,
       safeModulesVersion: '0.3.0',
       isSponsored: true as const,
       useNativeCoins: false as const,
-      paymasterUrl: `${config.API_URL}/paymaster/${chain.name.toLowerCase()}`,
+      paymasterUrl,
       safe4337ModuleAddress: contracts.safe4337Module,
       safeModulesSetupAddress: contracts.safeModuleSetup,
       contractNetworks: {
@@ -222,8 +241,12 @@ function useStealthWalletInternal() {
       functionName: 'transfer',
       args: [derivedAddress as `0x${string}`, amount],
     });
-    return accountRef.current.sendTransaction({ to: tokenAddress, data: transferData, value: 0n });
-  }, [getAccountAtIndex]);
+    const result = await accountRef.current.sendTransaction({ to: tokenAddress, data: transferData, value: 0n });
+    // Wait for the funding UserOp to be mined before returning —
+    // callers (e.g. stream creation) depend on tokens being available.
+    await waitForUserOpReceipt(result.hash as string, chainConfig.bundlerUrl);
+    return result;
+  }, [getAccountAtIndex, chainConfig.bundlerUrl]);
 
   const dispose = useCallback(() => {
     sessionStorage.removeItem(SESSION_SECRET_KEY);
