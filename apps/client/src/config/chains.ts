@@ -15,6 +15,17 @@ const paseo = defineChain({
   testnet: true,
 });
 
+const flowTestnet = defineChain({
+  id: 545,
+  name: "Flow EVM Testnet",
+  nativeCurrency: { name: "FLOW", symbol: "FLOW", decimals: 18 },
+  rpcUrls: { default: { http: ["https://testnet.evm.nodes.onflow.org"] } },
+  blockExplorers: {
+    default: { name: "Flowscan", url: "https://evm-testnet.flowscan.io" },
+  },
+  testnet: true,
+});
+
 // Anvil uses chainId 31337, but viem's localhost defaults to 1337
 const localhost = defineChain({
   ..._localhost,
@@ -115,6 +126,20 @@ export const supportedChains: Record<number, ChainConfig> = {
         verificationGasLimit: 500_000n,
         callGasLimit: 200_000n,
         preVerificationGas: 100_000n,
+      },
+    },
+  ),
+
+  [flowTestnet.id]: define(
+    flowTestnet,
+    `${import.meta.env.VITE_API_URL}/bundler/flow-testnet`,
+    `${import.meta.env.VITE_API_URL}/paymaster/flow-testnet`,
+    {
+      // Safe's canonical deployments on Flow differ from our CREATE2 defaults
+      contracts: {
+        safeSingleton: "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+        safeProxyFactory: "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        safe4337Module: "0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226",
       },
     },
   ),

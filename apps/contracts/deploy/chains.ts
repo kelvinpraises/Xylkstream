@@ -7,4 +7,11 @@ export const defaultChains = [
     currency: "PAS",
     explorer: "https://blockscout-testnet.polkadot.io",
   },
+  {
+    name: "flow-testnet",
+    rpc: "https://testnet.evm.nodes.onflow.org",
+    chainId: 545,
+    currency: "FLOW",
+    explorer: "https://evm-testnet.flowscan.io",
+  },
 ] as const satisfies readonly { name: string; rpc: string; chainId?: number; currency?: string; explorer?: string }[];

@@ -8,6 +8,7 @@ const CONTRACTS_ROOT = path.resolve(__dirname, "../../../../apps/contracts");
 export const chains = [
   { name: "localhost", rpc: "http://127.0.0.1:8545" },
   { name: "paseo", rpc: "https://eth-rpc-testnet.polkadot.io/" },
+  { name: "flow-testnet", rpc: "https://testnet.evm.nodes.onflow.org" },
 ];
 
 export interface DeployOutput {

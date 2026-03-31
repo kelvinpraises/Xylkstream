@@ -1,19 +1,19 @@
 {
-  "chain": "localhost",
-  "chainId": 31337,
-  "rpc": "http://127.0.0.1:8545",
-  "deployedAt": "2026-03-20T08:10:20.364Z",
+  "chain": "flow-testnet",
+  "chainId": 545,
+  "rpc": "https://testnet.evm.nodes.onflow.org",
+  "deployedAt": "2026-03-31T21:12:22.169Z",
   "deployer": "0x0a90a57905A85C88167F0A50018A8632f7E85eE3",
   "scopes": {
     "aa": {
       "status": "completed",
-      "deployedAt": "2026-03-31T16:15:28.261Z",
+      "deployedAt": "2026-03-31T21:17:26.991Z",
       "contracts": {
         "entryPoint": "0x0000000071727De22E5E9d8BAf0edAc6f37da032",
-        "safeSingleton": "0x1cf8d29422e1264787cba22589fc77f420fdb048",
-        "safeProxyFactory": "0xa9a878ece38017405daa6fef6f55372a3774e981",
+        "safeSingleton": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+        "safeProxyFactory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
         "safeModuleSetup": "0x0a506308777a2b272fa78c95720e17530bbab1d9",
-        "safe4337Module": "0xa8faf83e7dec6beec5cf460aa2a4433964f99887",
+        "safe4337Module": "0x75cf11467937ce3F2f357CE24ffc3DBF8fD5c226",
         "multiSend": "0x24f5b0ebb7742a074e7d9127d55733ea61cf22bf",
         "multiSendCallOnly": "0x1a5519bda3b677d1030af5ce471986f33f8e8b66",
         "fallbackHandler": "0x99f2a318aeb900c9c00d36e54fd9a0f1b520e847",
@@ -24,7 +24,7 @@
     },
     "privacy": {
       "status": "completed",
-      "deployedAt": "2026-03-31T16:15:56.603Z",
+      "deployedAt": "2026-03-31T21:19:54.940Z",
       "contracts": {
         "poseidonT3": "0xd7bb6fa8954363185b2a18e977148da14bb18725",
         "groth16Verifier": "0xb07ee9338902452c1320ab13c0f8184139c434a4",
@@ -36,7 +36,7 @@
     },
     "streaming": {
       "status": "completed",
-      "deployedAt": "2026-03-31T16:15:56.604Z",
+      "deployedAt": "2026-03-31T21:21:33.805Z",
       "contracts": {
         "facetA": "0xcd5419c80366b8befa24572182c505917bd7aa2d",
         "facetB": "0xc2e101e52eb69fd685194717b534953833882982",
@@ -50,12 +50,12 @@
     },
     "register": {
       "status": "completed",
-      "deployedAt": "2026-03-31T16:17:09.094Z",
+      "deployedAt": "2026-03-31T21:23:42.408Z",
       "contracts": {}
     },
     "paymaster": {
       "status": "completed",
-      "deployedAt": "2026-03-31T16:17:21.164Z",
+      "deployedAt": "2026-03-31T21:24:13.041Z",
       "contracts": {
         "verifyingPaymaster": "0x039581423128c87d33318c0419158e68f0857e47"
       }
