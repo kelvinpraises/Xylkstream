@@ -15,6 +15,7 @@ import { createCirclesRouter } from "./interfaces/api/routes/circles.js";
 import mcpRouter from "./interfaces/mcp/server.js";
 import { createProposalsRouter } from "./interfaces/api/routes/proposals.js";
 import { createStrategiesRouter } from "./interfaces/api/routes/strategies.js";
+import { createClaimsRouter } from "./interfaces/api/routes/claims.js";
 
 dotenv.config();
 
@@ -93,6 +94,7 @@ async function boot() {
   app.use("/mcp", mcpRouter);
   app.use("/proposals", createProposalsRouter());
   app.use("/strategies", createStrategiesRouter());
+  app.use("/claims", createClaimsRouter());
 
   const server = http.createServer(app);
   server.listen(BACKEND_PORT, () => {

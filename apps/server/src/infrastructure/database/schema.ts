@@ -57,12 +57,30 @@ export interface StrategiesTable {
   created_at: Timestamp;
 }
 
+export interface ClaimPagesTable {
+  id: string;
+  stream_id: string;
+  sender_user_id: number;
+  recipient_address: string;
+  token_address: string;
+  token_symbol: string;
+  total_amount: string;
+  amt_per_sec: string;
+  start_timestamp: number;
+  end_timestamp: number;
+  title: string;
+  subtitle: string;
+  chain_id: number;
+  created_at: Timestamp;
+}
+
 export interface DB {
   users: UsersTable;
   circles: CirclesTable;
   circle_members: CircleMembersTable;
   proposals: ProposalsTable;
   strategies: StrategiesTable;
+  claim_pages: ClaimPagesTable;
 }
 
 export type User = Selectable<UsersTable>;
@@ -70,3 +88,4 @@ export type Circle = Selectable<CirclesTable>;
 export type CircleMember = Selectable<CircleMembersTable>;
 export type Proposal = Selectable<ProposalsTable>;
 export type Strategy = Selectable<StrategiesTable>;
+export type ClaimPage = Selectable<ClaimPagesTable>;

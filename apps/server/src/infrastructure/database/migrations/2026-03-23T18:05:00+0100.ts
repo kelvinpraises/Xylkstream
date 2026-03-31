@@ -119,10 +119,48 @@ export async function up(db: Kysely<DB>): Promise<void> {
     .on("strategies")
     .columns(["user_id", "status"])
     .execute();
+
+  await db.schema
+    .createTable("claim_pages")
+    .ifNotExists()
+    .addColumn("id", "text", (col) => col.primaryKey())
+    .addColumn("stream_id", "text", (col) => col.notNull())
+    .addColumn("sender_user_id", "integer", (col) =>
+      col.notNull().references("users.id").onDelete("cascade"),
+    )
+    .addColumn("recipient_address", "text", (col) => col.notNull())
+    .addColumn("token_address", "text", (col) => col.notNull())
+    .addColumn("token_symbol", "text", (col) => col.notNull())
+    .addColumn("total_amount", "text", (col) => col.notNull())
+    .addColumn("amt_per_sec", "text", (col) => col.notNull())
+    .addColumn("start_timestamp", "integer", (col) => col.notNull())
+    .addColumn("end_timestamp", "integer", (col) => col.notNull())
+    .addColumn("title", "text", (col) => col.notNull().defaultTo("You've Got Money!"))
+    .addColumn("subtitle", "text", (col) => col.notNull().defaultTo(""))
+    .addColumn("chain_id", "integer", (col) => col.notNull())
+    .addColumn("created_at", "text", (col) =>
+      col.notNull().defaultTo(sql`CURRENT_TIMESTAMP`),
+    )
+    .execute();
+
+  await db.schema
+    .createIndex("claim_pages_sender_idx")
+    .ifNotExists()
+    .on("claim_pages")
+    .column("sender_user_id")
+    .execute();
+
+  await db.schema
+    .createIndex("claim_pages_stream_idx")
+    .ifNotExists()
+    .on("claim_pages")
+    .column("stream_id")
+    .execute();
 }
 
 export async function down(db: Kysely<DB>): Promise<void> {
   // Drop in reverse order to respect foreign keys
+  await db.schema.dropTable("claim_pages").ifExists().execute();
   await db.schema.dropTable("strategies").ifExists().execute();
   await db.schema.dropTable("proposals").ifExists().execute();
   await db.schema.dropTable("circle_members").ifExists().execute();

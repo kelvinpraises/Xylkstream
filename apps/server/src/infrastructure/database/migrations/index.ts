@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { promises as fs } from "fs";
-import { FileMigrationProvider, Migrator } from "kysely";
+import type { MigrationProvider, Migration } from "kysely";
+import { Migrator } from "kysely";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import yargs from "yargs";
@@ -8,17 +9,25 @@ import { initDatabase } from "../connection.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** FileMigrationProvider that skips index.ts (this CLI file) */
+const migrationProvider: MigrationProvider = {
+  async getMigrations(): Promise<Record<string, Migration>> {
+    const files = await fs.readdir(__dirname);
+    const migrations: Record<string, Migration> = {};
+    for (const file of files) {
+      if (file === "index.ts" || file === "index.js") continue;
+      if (!file.endsWith(".ts") && !file.endsWith(".js")) continue;
+      const mod = await import(path.join(__dirname, file));
+      migrations[file.replace(/\.[tj]s$/, "")] = mod;
+    }
+    return migrations;
+  },
+};
+
 async function run() {
   const db = await initDatabase();
 
-  const migrator = new Migrator({
-    db,
-    provider: new FileMigrationProvider({
-      fs,
-      path,
-      migrationFolder: __dirname,
-    }),
-  });
+  const migrator = new Migrator({ db, provider: migrationProvider });
 
   const argv = await yargs(process.argv.slice(2))
     .command("up", "Run all pending migrations")
