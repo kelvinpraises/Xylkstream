@@ -1,7 +1,7 @@
 // stealth-wallet-provider.tsx — derives and manages a deterministic ERC-4337 stealth Safe from the Privy embedded wallet
 
 import { useState, useCallback, useRef, useEffect, createContext, useContext, type ReactNode } from "react";
-import { useWallets } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { sha256, toBytes, hexToBytes, bytesToHex, encodeFunctionData } from 'viem';
 import WalletManagerEvmErc4337 from '@xylkstream/wdk-4337';
 import type {
@@ -57,6 +57,7 @@ export interface StealthApproveParams {
 
 function useStealthWalletInternal() {
   const { wallets } = useWallets();
+  const { authenticated } = usePrivy();
   const { chainConfig } = useChain();
 
   const [state, setState] = useState<StealthWalletState>({
@@ -263,6 +264,14 @@ function useStealthWalletInternal() {
     });
   }, []);
 
+  const wasAuthenticatedRef = useRef(authenticated);
+  useEffect(() => {
+    if (wasAuthenticatedRef.current && !authenticated) {
+      dispose();
+    }
+    wasAuthenticatedRef.current = authenticated;
+  }, [authenticated, dispose]);
+
   return {
     isReady: state.isReady,
     isDeriving: state.isDeriving,
@@ -295,11 +304,29 @@ export function StealthWalletProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Fallback returned when the hook is called outside the provider (e.g. during
+// route transitions where RootProvider briefly unmounts). Every consumer already
+// gates on `isReady` / `stealthAddress`, so this is safe — no work runs.
+const STEALTH_WALLET_FALLBACK: StealthWalletContextValue = {
+  isReady: false,
+  isDeriving: false,
+  stealthAddress: null,
+  error: null,
+  deriveWallet: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  sendTransaction: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  getTokenBalance: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  approve: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  getAccountAtIndex: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  sendTransactionFrom: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  getTokenBalanceAt: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  fundDerivedWallet: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  waitForUserOp: () => Promise.reject(new Error("StealthWalletProvider not mounted")),
+  dispose: () => {},
+  account: null,
+};
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function useStealthWallet() {
   const context = useContext(StealthWalletContext);
-  if (!context) {
-    throw new Error("useStealthWallet must be used within StealthWalletProvider");
-  }
-  return context;
+  return context ?? STEALTH_WALLET_FALLBACK;
 }
