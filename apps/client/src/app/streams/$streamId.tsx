@@ -1,14 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { Button } from "@/components/atoms/button";
 import { Card } from "@/components/molecules/card";
 import { Badge } from "@/components/atoms/badge";
 import { Progress } from "@/components/atoms/progress";
 import { Separator } from "@/components/atoms/separator";
-import { ArrowLeft, ExternalLink, Shield } from "lucide-react";
+import { ArrowLeft, ExternalLink, Shield, Pause, Play, Edit2, Trash2, Loader2, Copy } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { useLocalStreams } from "@/store/stream-store";
 import { useChain } from "@/providers/chain-provider";
 import { useNow } from "@/hooks/use-now";
+import { usePauseStream, useResumeStream, useCancelStream, useEditStream } from "@/hooks/use-stream-actions";
+import { StreamEditDrawer } from "@/components/organisms/stream-edit-drawer";
 
 export const Route = createFileRoute("/streams/$streamId")({
   component: StreamDetailPage,
@@ -22,6 +26,14 @@ function StreamDetailPage() {
 
   const { streams } = useLocalStreams();
   const stream = streams.find((s) => s.id === streamId);
+
+  const pauseStream = usePauseStream();
+  const resumeStream = useResumeStream();
+  const cancelStream = useCancelStream();
+  const editStream = useEditStream();
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+
+  const anyPending = pauseStream.isPending || resumeStream.isPending || cancelStream.isPending || editStream.isPending;
 
   if (!stream) {
     return (
@@ -40,12 +52,27 @@ function StreamDetailPage() {
     );
   }
   const duration = stream.endTimestamp - stream.startTimestamp;
-  const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
-  const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
   const totalAmount = parseFloat(stream.totalAmount);
-  const streamed = totalAmount * (progress / 100);
+  const isPaused = stream.status === "PAUSED";
+  const isTerminal = stream.status === "CANCELLED";
+  const isActive = stream.endTimestamp > nowSecs && !isPaused && !isTerminal;
+
+  // Freeze progress when paused
+  let progress: number;
+  let streamed: number;
+  if (isPaused && stream.pausedRemainingDuration !== undefined) {
+    const elapsedAtPause = duration - stream.pausedRemainingDuration;
+    progress = duration > 0 ? Math.min(100, (elapsedAtPause / duration) * 100) : 0;
+    streamed = totalAmount - parseFloat(stream.pausedRemainingAmount ?? "0");
+  } else {
+    const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
+    progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+    streamed = totalAmount * (progress / 100);
+  }
   const remaining = totalAmount - streamed;
-  const isActive = stream.endTimestamp > nowSecs;
+
+  const statusLabel = isActive ? "active" : isPaused ? "paused" : isTerminal ? "cancelled" : "completed";
+  const statusVariant = isActive ? "default" as const : isPaused ? "outline" as const : "secondary" as const;
 
   return (
     <div className="container mx-auto p-6 max-w-4xl">
@@ -78,11 +105,36 @@ function StreamDetailPage() {
                   private
                 </Badge>
               )}
-              <Badge variant={isActive ? "default" : "secondary"}>
-                {isActive ? "active" : "completed"}
+              <Badge variant={statusVariant}>
+                {statusLabel}
               </Badge>
             </div>
           </div>
+
+          {/* Action buttons */}
+          {!isTerminal && (
+            <div className="flex gap-2 mt-4">
+              {isActive && (
+                <Button variant="outline" size="sm" onClick={() => pauseStream.mutate({ stream })} disabled={anyPending}>
+                  {pauseStream.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Pause className="w-4 h-4 mr-2" />}
+                  Pause
+                </Button>
+              )}
+              {isPaused && (
+                <Button variant="outline" size="sm" onClick={() => resumeStream.mutate({ stream })} disabled={anyPending}>
+                  {resumeStream.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+                  Resume
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setEditDrawerOpen(true)} disabled={anyPending}>
+                <Edit2 className="w-4 h-4 mr-2" /> Edit
+              </Button>
+              <Button variant="destructive" size="sm" onClick={() => cancelStream.mutate({ stream })} disabled={anyPending}>
+                {cancelStream.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash2 className="w-4 h-4 mr-2" />}
+                Cancel
+              </Button>
+            </div>
+          )}
         </Card>
 
         {/* Stats */}
@@ -129,6 +181,31 @@ function StreamDetailPage() {
             </div>
           </div>
         </Card>
+
+        {/* Claim Link */}
+        {stream.claimId && (
+          <Card className="p-6">
+            <h3 className="font-medium mb-4 lowercase">claim link</h3>
+            <div className="flex items-center gap-2">
+              <code className="text-xs font-mono truncate flex-1">
+                {window.location.origin}/claim/{stream.claimId}
+              </code>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(`${window.location.origin}/claim/${stream.claimId}`);
+                  toast.success("Claim link copied");
+                }}
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Share this link with the recipient so they can collect their funds
+            </p>
+          </Card>
+        )}
 
         {/* Derived Wallet (Private Streams) */}
         {stream.isPrivate && stream.walletAddress && (
@@ -194,6 +271,19 @@ function StreamDetailPage() {
           </Card>
         )}
       </div>
+
+      <StreamEditDrawer
+        stream={stream}
+        open={editDrawerOpen}
+        onOpenChange={setEditDrawerOpen}
+        onSubmit={({ newTotalAmount, newDurationSeconds }) => {
+          editStream.mutate(
+            { stream, newTotalAmount, newDurationSeconds, newTokenDecimals: 18 },
+            { onSuccess: () => setEditDrawerOpen(false) },
+          );
+        }}
+        isPending={editStream.isPending}
+      />
     </div>
   );
 }

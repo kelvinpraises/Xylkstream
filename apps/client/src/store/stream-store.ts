@@ -28,6 +28,13 @@ export interface LocalStream {
   walletAddress?: string;
   txHash?: string;
   createdAt: string;
+  status?: "ACTIVE" | "PAUSED" | "CANCELLED";
+  /** Seconds remaining when stream was paused (used to calculate new duration on resume) */
+  pausedRemainingDuration?: number;
+  /** Original total amount minus what was already streamed when paused */
+  pausedRemainingAmount?: string;
+  /** Claim page ID for generating shareable claim links */
+  claimId?: string;
 }
 
 function readRaw(chainId: number): LocalStream[] {
@@ -62,11 +69,35 @@ export function removeStream(chainId: number, id: string): void {
   writeRaw(chainId, readRaw(chainId).filter((s) => s.id !== id));
 }
 
+export function updateStream(chainId: number, id: string, patch: Partial<LocalStream>): void {
+  const streams = readRaw(chainId);
+  const idx = streams.findIndex((s) => s.id === id);
+  if (idx === -1) return;
+  streams[idx] = { ...streams[idx], ...patch };
+  writeRaw(chainId, streams);
+}
+
 export function clearStreams(chainId: number): void {
   try {
     localStorage.removeItem(storageKey(chainId));
   } catch {
     // ignore
+  }
+}
+
+/** Remove completed streams older than `olderThanDays` from localStorage */
+export function cleanupCompletedStreams(chainId: number, olderThanDays = 30): void {
+  const nowSecs = Math.floor(Date.now() / 1000);
+  const cutoff = nowSecs - olderThanDays * 86400;
+  const streams = readRaw(chainId);
+  const kept = streams.filter(
+    (s) =>
+      s.status === "PAUSED" ||
+      s.endTimestamp > nowSecs ||
+      s.endTimestamp > cutoff,
+  );
+  if (kept.length < streams.length) {
+    writeRaw(chainId, kept);
   }
 }
 
