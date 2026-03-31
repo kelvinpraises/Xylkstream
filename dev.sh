@@ -3,7 +3,6 @@ set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 ANVIL_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-BUNDLER_ADDRESS="0x4a0D65211EE3736E98e3953A40FfAf6A9Bf305C5"
 
 # Colors
 G='\033[0;32m' Y='\033[0;33m' R='\033[0;31m' N='\033[0m'
@@ -24,6 +23,7 @@ trap cleanup SIGINT SIGTERM
 log "Killing stale processes..."
 pkill -9 -f "anvil" 2>/dev/null || true
 pkill -9 -f "tsx watch src/server.ts" 2>/dev/null || true
+lsof -ti:4848 | xargs kill -9 2>/dev/null || true
 sleep 1
 
 # ── 2. Start Anvil ──
@@ -45,19 +45,28 @@ if ! cast block-number --rpc-url http://127.0.0.1:8545 &>/dev/null; then
 fi
 log "Anvil running (PID $ANVIL_PID)"
 
-# ── 3. Fund bundler ──
-log "Funding bundler ($BUNDLER_ADDRESS) with 100 ETH..."
-cast send "$BUNDLER_ADDRESS" \
+# ── 3. Read operator key (single key for deploy + bundle + paymaster) ──
+OPERATOR_KEY=$(grep '^OPERATOR_KEY=' "$ROOT/apps/server/.env" | cut -d= -f2)
+OPERATOR_ADDRESS=$(grep '^OPERATOR_ADDRESS=' "$ROOT/apps/server/.env" | cut -d= -f2)
+if [ -z "$OPERATOR_KEY" ] || [ -z "$OPERATOR_ADDRESS" ]; then
+  err "OPERATOR_KEY and OPERATOR_ADDRESS must be set in apps/server/.env"
+  err "This single key is used for deploying, bundling, and paymaster signing."
+  exit 1
+fi
+
+# Fund operator from Anvil account #0 so it can deploy + run bundler
+log "Funding operator ($OPERATOR_ADDRESS) with 100 ETH..."
+cast send "$OPERATOR_ADDRESS" \
   --value 100ether \
   --private-key "$ANVIL_KEY" \
   --rpc-url http://127.0.0.1:8545 \
   > /dev/null 2>&1
-log "Bundler funded"
+log "Operator funded"
 
-# ── 4. Deploy contracts ──
+# ── 4. Deploy contracts (same key as prod → same CREATE2 addresses) ──
 log "Deploying contracts (force)..."
 cd "$ROOT/apps/contracts"
-DEPLOYER_PRIVATE_KEY="$ANVIL_KEY" npm run deploy -- --name localhost --force 2>&1 | while IFS= read -r line; do
+DEPLOYER_PRIVATE_KEY="$OPERATOR_KEY" OPERATOR_ADDRESS="$OPERATOR_ADDRESS" npm run deploy -- --name localhost --force 2>&1 | while IFS= read -r line; do
   echo "  $line"
 done
 
@@ -101,7 +110,7 @@ echo -e "${G}✓ Everything running${N}"
 echo "  Anvil   → http://127.0.0.1:8545 (block-time 5)"
 echo "  Server  → http://localhost:4848"
 echo "  Client  → http://localhost:5173"
-echo "  Bundler → $BUNDLER_ADDRESS (100 ETH)"
+echo "  Operator → $OPERATOR_ADDRESS (100 ETH)"
 echo ""
 echo "Press Ctrl+C to stop all services"
 echo ""

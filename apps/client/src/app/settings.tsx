@@ -212,7 +212,12 @@ function SettingsPage() {
               <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
                 <Bot className="w-5 h-5 text-purple-400" />
               </div>
-              <CardTitle className="text-lg">Agent</CardTitle>
+              <div>
+                <CardTitle className="text-lg">Connect an AI Agent</CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Let an AI manage payments, monitor balances, and propose actions on your behalf
+                </p>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -221,14 +226,19 @@ function SettingsPage() {
                 Sign in to connect an agent.
               </p>
             ) : (
-              <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-medium">MCP Server</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5 mb-3">
-                    Point any MCP-compatible agent at this URL. It supports OAuth 2.1 — the agent will open a browser for you to approve access.
-                  </p>
+              <div className="space-y-5">
+                {/* How it works */}
+                <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+                  <Label className="text-sm font-medium">How it works</Label>
+                  <ol className="text-xs text-muted-foreground leading-relaxed space-y-2 list-decimal list-inside">
+                    <li>Copy the MCP endpoint below</li>
+                    <li>Paste it into any MCP-compatible agent (Claude Desktop, Cursor, custom agents, etc.)</li>
+                    <li>A browser window will open asking you to approve access</li>
+                    <li>Once approved, the agent can read your data and propose actions — you approve each one before it executes</li>
+                  </ol>
                 </div>
 
+                {/* Endpoint */}
                 <div>
                   <Label className="text-xs text-muted-foreground uppercase tracking-wider">
                     MCP Endpoint
@@ -243,6 +253,7 @@ function SettingsPage() {
                       onClick={() => {
                         const endpoint = `${window.location.origin.replace(/:\d+$/, ':4848')}/mcp`;
                         navigator.clipboard.writeText(endpoint);
+                        setCopied("MCP endpoint");
                         toast.success("MCP endpoint copied");
                       }}
                       className="shrink-0"
@@ -256,8 +267,28 @@ function SettingsPage() {
                   </div>
                 </div>
 
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Agents can read your circles, streams, and balances, and create proposals that require your approval before execution.
+                {/* What agents can do */}
+                <div>
+                  <Label className="text-xs text-muted-foreground uppercase tracking-wider mb-2 block">
+                    What agents can do
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      "View your circles & members",
+                      "Read stream status & balances",
+                      "Check collectable funds",
+                      "Propose new payments",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <Check className="w-3 h-3 text-purple-400 shrink-0 mt-0.5" />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-muted-foreground/60 leading-relaxed">
+                  Agents use OAuth 2.1 for secure access. All proposed actions require your explicit approval before execution. You can revoke access at any time.
                 </p>
               </div>
             )}

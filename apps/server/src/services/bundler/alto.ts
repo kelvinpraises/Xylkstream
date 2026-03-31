@@ -1,4 +1,9 @@
 import { spawn, ChildProcess } from "child_process";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const SERVER_ROOT = path.resolve(__dirname, "../../../");
 
 export interface AltoConfig {
   entryPointAddress: string;
@@ -8,6 +13,7 @@ export interface AltoConfig {
 }
 
 const BASE_PORT = 4337;
+let nextPort = BASE_PORT;
 const instances = new Map<string, number>();
 const processes = new Map<string, ChildProcess>();
 
@@ -18,7 +24,7 @@ export function getAltoPort(chainName: string): number | null {
 export function assignPort(chainName: string): number {
   const existing = instances.get(chainName);
   if (existing) return existing;
-  const port = BASE_PORT + instances.size;
+  const port = nextPort++;
   instances.set(chainName, port);
   return port;
 }
@@ -41,6 +47,7 @@ export async function startAlto(chainName: string, config: AltoConfig): Promise<
     "--log-level", "info",
   ], {
     stdio: ["ignore", "pipe", "pipe"],
+    cwd: SERVER_ROOT,
     env: { ...process.env },
   });
 

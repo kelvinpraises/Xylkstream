@@ -12,7 +12,7 @@ import { WelcomeDialog } from "@/components/organisms/welcome-dialog";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Badge } from "@/components/atoms/badge";
 import { truncateAddress, cn } from "@/utils";
-import { useLocalStreams } from "@/store/stream-store";
+import { useLocalStreams, cleanupCompletedStreams } from "@/store/stream-store";
 import { useTokenBalance } from "@/hooks/use-stream-reads";
 import { useStealthWallet } from "@/providers/stealth-wallet-provider";
 import { useChain } from "@/providers/chain-provider";
@@ -55,7 +55,7 @@ function DashboardPage() {
   const { stealthAddress, isReady: isStealthReady } = stealthWallet;
 
   // Chain config
-  const { chainConfig } = useChain();
+  const { chainConfig, chainId } = useChain();
 
   // Token balances — query each sendable token
   const tokens = getSendableTokens(chainConfig.contracts);
@@ -78,6 +78,11 @@ function DashboardPage() {
 
   // Streams from localStorage (partitioned by chain)
   const { streams } = useLocalStreams();
+
+  // Clean up completed streams older than 30 days
+  useEffect(() => {
+    cleanupCompletedStreams(chainId);
+  }, [chainId]);
   const isLoading = !ready;
 
   // Auto-collect incoming payments when enabled in settings
@@ -94,40 +99,57 @@ function DashboardPage() {
       .reduce((sum, s) => {
         // amtPerSec is in internal Drips units (wei * 10^9), convert back to tokens/sec
         const rawPerSec = BigInt(s.amtPerSec);
-        const tokensPerSec = Number(rawPerSec) / 1e27; // 10^18 decimals * 10^9 multiplier
+        const tokensPerSec = parseFloat(formatUnits(rawPerSec, 27));
         return sum + tokensPerSec;
       }, 0);
     return { activeStreams, totalAmount, outflowRate };
   }, [streams, nowSecs]);
 
-  // Format streams for StreamCard — only show active ones on the dashboard
+  // Format streams for StreamCard — show active and paused on the dashboard
   const activeStreams = useMemo(() => {
     return streams
-      .filter((s) => s.endTimestamp > nowSecs)
+      .filter((s) => s.status !== "CANCELLED" && (s.endTimestamp > nowSecs || s.status === "PAUSED"))
       .map((s) => {
+        const isPaused = s.status === "PAUSED";
         const duration = s.endTimestamp - s.startTimestamp;
-        const elapsed = Math.max(0, nowSecs - s.startTimestamp);
-        const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
-        const streamed = parseFloat(s.totalAmount) * (progress / 100);
+
+        // When paused, freeze progress at the moment of pausing
+        let progress: number;
+        let streamed: number;
+        let rateAmount: number;
+        if (isPaused && s.pausedRemainingDuration !== undefined) {
+          const elapsedAtPause = duration - s.pausedRemainingDuration;
+          progress = duration > 0 ? Math.min(100, (elapsedAtPause / duration) * 100) : 0;
+          streamed = parseFloat(s.totalAmount) - parseFloat(s.pausedRemainingAmount ?? "0");
+          rateAmount = 0; // not actively sending
+        } else {
+          const elapsed = Math.max(0, nowSecs - s.startTimestamp);
+          progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+          streamed = parseFloat(s.totalAmount) * (progress / 100);
+          rateAmount = parseFloat(s.totalAmount) / Math.max(1, duration / (86400 * 30));
+        }
+
+        const status = isPaused ? "PAUSED" as const : "ACTIVE" as const;
         return {
           id: s.id,
           recipientName: truncateAddress(s.recipientAddress),
           recipientAddress: truncateAddress(s.recipientAddress),
-          avatarFallback: s.recipientAddress.slice(2, 4).toUpperCase(),
-          status: "ACTIVE" as const,
+          status,
           streamedAmount: streamed,
           streamedCurrency: s.tokenSymbol,
-          rateAmount: parseFloat(s.totalAmount) / Math.max(1, duration / (86400 * 30)),
-          rateInterval: "/mo",
+          rateAmount,
+          rateInterval: isPaused ? "" : "/mo",
           progress,
           isPrivate: s.isPrivate,
           walletAddress: s.walletAddress,
+          localStream: s,
         };
       });
   }, [streams, nowSecs]);
 
   const completedCount = streams.length - activeStreams.length;
   const hasStreams = streams.length > 0;
+  const hasActiveStreams = stats.activeStreams > 0;
 
   return (
     <div className="w-full max-w-7xl mx-auto">
@@ -159,13 +181,13 @@ function DashboardPage() {
               <div className="absolute inset-0 opacity-30">
                 <StreamReactor
                   active={true}
-                  intensity={hasStreams && stats.outflowRate > 0 ? Math.min(Math.max(70, stats.outflowRate * 150), 300) : 40}
+                  intensity={hasActiveStreams && stats.outflowRate > 0 ? Math.min(Math.max(70, stats.outflowRate * 150), 300) : 40}
                 />
               </div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center">
-                    {hasStreams ? (
+                    {hasActiveStreams ? (
                       <Droplets className="w-6 h-6 text-amber-400" />
                     ) : (
                       <Wallet className="w-6 h-6 text-amber-400" />
@@ -176,9 +198,9 @@ function DashboardPage() {
                   </Badge>
                 </div>
                 <h3 className="text-muted-foreground text-sm mb-2">
-                  {hasStreams ? "Sending" : "Your Balance"}
+                  {hasActiveStreams ? "Sending" : "Your Balance"}
                 </h3>
-                {hasStreams ? (
+                {hasActiveStreams ? (
                   <>
                     <p className="text-3xl font-light text-foreground font-mono">
                       ${(stats.outflowRate * 86400 * 30).toFixed(2)}
@@ -271,7 +293,17 @@ function DashboardPage() {
         {activeStreams.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeStreams.map((stream) => (
-              <StreamCard key={stream.id} stream={stream} isPrivate={stream.isPrivate} walletAddress={stream.walletAddress} />
+              <div
+                key={stream.id}
+                className="cursor-pointer"
+                onClick={() => navigate({ to: "/streams/$streamId", params: { streamId: String(stream.id) } })}
+              >
+                <StreamCard
+                  stream={stream}
+                  isPrivate={stream.isPrivate}
+                  walletAddress={stream.walletAddress}
+                />
+              </div>
             ))}
           </div>
         ) : (
@@ -297,6 +329,7 @@ function DashboardPage() {
           </div>
         )}
       </div>
+
     </div>
   );
 }

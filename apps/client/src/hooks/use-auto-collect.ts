@@ -15,9 +15,11 @@ const AUTO_COLLECT_KEY = "xylkstream_auto_collect";
 export function useAutoCollectSetting() {
   const [enabled, setEnabled] = useState<boolean>(() => {
     try {
-      return localStorage.getItem(AUTO_COLLECT_KEY) === "true";
+      const stored = localStorage.getItem(AUTO_COLLECT_KEY);
+      if (stored === null) return true;
+      return stored === "true";
     } catch {
-      return false;
+      return true;
     }
   });
 

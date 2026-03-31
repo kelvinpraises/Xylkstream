@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useNow } from "@/hooks/use-now";
-import { Plus, Check, Loader2, Copy, XCircle, CheckCircle2, Shield, Globe } from "lucide-react";
+import { Plus, Check, Loader2, Copy, XCircle, CheckCircle2, Shield, Globe, Edit2, Pause, Play, Trash2 } from "lucide-react";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
@@ -24,16 +25,32 @@ import {
 } from "@/components/molecules/drawer";
 import { Separator } from "@/components/atoms/separator";
 import { CSVBatchDialog } from "@/components/organisms/csv-batch-dialog";
+import { StreamEditDrawer } from "@/components/organisms/stream-edit-drawer";
 
 import { useCreateStream } from "@/hooks/use-stream-create";
+import { usePauseStream, useResumeStream, useCancelStream, useEditStream } from "@/hooks/use-stream-actions";
 import { useTokenDecimals } from "@/hooks/use-token-decimals";
-import { useLocalStreams } from "@/store/stream-store";
+import { useTokenBalance } from "@/hooks/use-stream-reads";
+import { useLocalStreams, updateStream, getStreams } from "@/store/stream-store";
 import type { LocalStream } from "@/store/stream-store";
 import { useChain } from "@/providers/chain-provider";
+import { useStealthWallet } from "@/providers/stealth-wallet-provider";
 import { getSendableTokens } from "@/config/chains";
+import { usePrivy } from "@privy-io/react-auth";
+import { formatUnits } from "viem";
+import { config } from "@/config";
+
+interface StreamsSearch {
+  recipient?: string;
+  batchRecipients?: string;
+}
 
 export const Route = createFileRoute("/streams/")({
   component: StreamsPage,
+  validateSearch: (search: Record<string, unknown>): StreamsSearch => ({
+    recipient: typeof search.recipient === "string" ? search.recipient : undefined,
+    batchRecipients: typeof search.batchRecipients === "string" ? search.batchRecipients : undefined,
+  }),
 });
 
 // TOKENS is resolved inside the component via useChain
@@ -43,9 +60,6 @@ const WIZARD_STEPS = [
   { id: "details", title: "Payment Details", description: "Who and How Much" },
   { id: "claim", title: "Personalize", description: "Add a Message" },
 ];
-
-const isValidEmail = (email: string) =>
-  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const isValidAddress = (addr: string) =>
   /^0x[a-fA-F0-9]{40}$/.test(addr);
@@ -63,19 +77,23 @@ const toSeconds = (value: number, unit: TimeUnit) => {
   return value * multipliers[unit];
 };
 
-function StreamWizard({ onClose }: { onClose: () => void }) {
-  const { chainConfig } = useChain();
+function StreamWizard({ onClose, initialRecipient }: { onClose: () => void; initialRecipient?: string }) {
+  const { chainConfig, chainId } = useChain();
+  const { getAccessToken } = usePrivy();
+  const { stealthAddress } = useStealthWallet();
   const TOKENS = getSendableTokens(chainConfig.contracts);
   const [currentStep, setCurrentStep] = useState(0);
   const [wizardState, setWizardState] = useState<"form" | "processing" | "success" | "error">("form");
   const [successStreamId, setSuccessStreamId] = useState<string | null>(null);
+  const [claimLink, setClaimLink] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState("");
+  const [copiedClaimLink, setCopiedClaimLink] = useState(false);
   const [copiedStreamId, setCopiedStreamId] = useState(false);
   const [formData, setFormData] = useState(() => {
     return {
     streamName: "",
     tokenAddress: TOKENS[0].address,
-    recipient: "",
+    recipient: initialRecipient ?? "",
     amount: "",
     startValue: 0,
     startUnit: "minutes" as TimeUnit,
@@ -87,6 +105,13 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
   });
 
   const { data: tokenDecimals } = useTokenDecimals(formData.tokenAddress as `0x${string}`);
+  const { data: rawBalance } = useTokenBalance(
+    stealthAddress as `0x${string}` | undefined,
+    formData.tokenAddress as `0x${string}`,
+  );
+  const walletBalance = rawBalance !== undefined
+    ? parseFloat(formatUnits(rawBalance, tokenDecimals ?? 18))
+    : undefined;
   const sendStream = useCreateStream();
 
   const handleNext = async () => {
@@ -101,15 +126,19 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
         return;
       }
       if (!formData.recipient) {
-        toast.error("Please enter a recipient address or email");
+        toast.error("Please enter a recipient address");
         return;
       }
-      if (!isValidAddress(formData.recipient) && !isValidEmail(formData.recipient)) {
-        toast.error("Please enter a valid 0x address or email");
+      if (!isValidAddress(formData.recipient)) {
+        toast.error("Please enter a valid 0x wallet address");
         return;
       }
       if (!formData.amount || parseFloat(formData.amount) <= 0) {
         toast.error("Please enter a valid amount");
+        return;
+      }
+      if (walletBalance !== undefined && parseFloat(formData.amount) > walletBalance) {
+        toast.error(`Insufficient balance. You have ${walletBalance.toFixed(2)} ${selectedToken?.symbol ?? "tokens"}`);
         return;
       }
       if (formData.endValue <= 0) {
@@ -139,8 +168,45 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
         usePrivacy: true,
         tokenSymbol: selectedToken?.symbol ?? "TOKEN",
         startTimestamp: Math.floor(startTimestamp),
-      }).then((result) => {
+      }).then(async (result) => {
         setSuccessStreamId(result.txHash);
+
+        // Create claim page on server
+        try {
+          const token = await getAccessToken();
+          const res = await fetch(`${config.API_URL}/claims`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+            body: JSON.stringify({
+              streamId: result.txHash,
+              recipientAddress: formData.recipient,
+              tokenAddress: formData.tokenAddress,
+              tokenSymbol: selectedToken?.symbol ?? "TOKEN",
+              totalAmount: formData.amount,
+              amtPerSec: String(
+                Number(formData.amount) / durationSeconds,
+              ),
+              startTimestamp: Math.floor(startTimestamp),
+              endTimestamp: Math.floor(endTimestamp),
+              title: formData.claimPageTitle || "You've Got Money!",
+              subtitle: formData.claimPageSubtitle || "",
+              chainId,
+            }),
+          });
+          if (res.ok) {
+            const { claim } = await res.json();
+            setClaimLink(`${window.location.origin}/claim/${claim.id}`);
+            // Persist claimId in localStorage so stream detail page can show the link
+            const match = getStreams(chainId).find((s) => s.txHash === result.txHash);
+            if (match) updateStream(chainId, match.id, { claimId: claim.id });
+          }
+        } catch {
+          // Non-fatal — stream was created, claim link just won't be available
+        }
+
         setWizardState("success");
       }).catch((error: unknown) => {
         setErrorMessage(error instanceof Error ? error.message : "Failed to create stream");
@@ -169,6 +235,14 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
     setTimeout(() => setCopiedStreamId(false), 2000);
   };
 
+  const handleCopyClaimLink = () => {
+    if (!claimLink) return;
+    navigator.clipboard.writeText(claimLink);
+    setCopiedClaimLink(true);
+    toast.success("Claim link copied");
+    setTimeout(() => setCopiedClaimLink(false), 2000);
+  };
+
   const selectedToken = TOKENS.find((t) => t.address === formData.tokenAddress);
 
   return (
@@ -176,7 +250,7 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
       className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
       onClick={handleBackdropClick}
     >
-      <Card className="max-w-3xl w-full p-8" onClick={(e) => e.stopPropagation()}>
+      <Card className="max-w-3xl w-full p-8 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {wizardState === "processing" && (
           <div className="flex flex-col items-center justify-center min-h-[350px] gap-4">
             <Loader2 className="w-12 h-12 animate-spin text-primary" />
@@ -191,20 +265,42 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
               <CheckCircle2 className="w-8 h-8 text-emerald-400" />
             </div>
             <h2 className="text-xl font-serif font-light">Payment sent!</h2>
+
+            {claimLink && (
+              <div className="w-full max-w-sm mt-2">
+                <p className="text-sm text-muted-foreground text-center mb-2">
+                  Share this link with your recipient
+                </p>
+                <div className="flex items-center gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                  <code className="text-xs font-mono text-amber-400/80 truncate flex-1">
+                    {claimLink}
+                  </code>
+                  <Button variant="ghost" size="icon" onClick={handleCopyClaimLink} className="shrink-0 h-8 w-8">
+                    {copiedClaimLink ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {successStreamId && (
-              <div className="flex items-center gap-2 mt-2">
-                <code className="text-sm font-mono bg-muted/30 px-3 py-2 rounded-lg text-muted-foreground">
-                  stream #{successStreamId}
+              <div className="flex items-center gap-2 mt-1">
+                <code className="text-xs font-mono text-muted-foreground/60">
+                  tx: {String(successStreamId).slice(0, 10)}...{String(successStreamId).slice(-6)}
                 </code>
-                <Button variant="ghost" size="icon" onClick={handleCopyStreamId} className="shrink-0 h-8 w-8">
+                <Button variant="ghost" size="icon" onClick={handleCopyStreamId} className="shrink-0 h-6 w-6">
                   {copiedStreamId ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-400" />
+                    <Check className="w-3 h-3 text-emerald-400" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-3 h-3" />
                   )}
                 </Button>
               </div>
             )}
+
             <Button onClick={onClose} className="mt-4">
               Done
             </Button>
@@ -330,7 +426,7 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
                     <div>
                       <Label className="mb-2">Recipient</Label>
                       <Input
-                        placeholder="0x... address or email@example.com"
+                        placeholder="0x... wallet address"
                         value={formData.recipient}
                         onChange={(e) => setFormData({ ...formData, recipient: e.target.value })}
                       />
@@ -340,11 +436,15 @@ function StreamWizard({ onClose }: { onClose: () => void }) {
                     <div>
                       <Label className="mb-2">
                         Amount
-                        {selectedToken && (
+                        {selectedToken && walletBalance !== undefined ? (
+                          <span className="text-muted-foreground font-normal ml-1">
+                            (Balance: {walletBalance.toFixed(2)} {selectedToken.symbol})
+                          </span>
+                        ) : selectedToken ? (
                           <span className="text-muted-foreground font-normal ml-1">
                             ({selectedToken.symbol})
                           </span>
-                        )}
+                        ) : null}
                       </Label>
                       <Input
                         type="number"
@@ -506,22 +606,48 @@ function StreamDetailDrawer({
   open,
   onOpenChange,
   onViewDetails,
+  onPause,
+  onResume,
+  onEdit,
+  onCancel,
+  isActionPending,
+  claimLink,
 }: {
   stream: LocalStream | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onViewDetails: (id: string) => void;
+  onPause?: (stream: LocalStream) => void;
+  onResume?: (stream: LocalStream) => void;
+  onEdit?: (stream: LocalStream) => void;
+  onCancel?: (stream: LocalStream) => void;
+  isActionPending?: boolean;
+  claimLink?: string;
 }) {
   const nowSecs = useNow();
 
   if (!stream) return null;
 
   const duration = stream.endTimestamp - stream.startTimestamp;
-  const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
-  const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
-  const streamed = parseFloat(stream.totalAmount) * (progress / 100);
-  const isActive = stream.endTimestamp > nowSecs;
-  const monthlyRate = parseFloat(stream.totalAmount) / Math.max(1, duration / (86400 * 30));
+  const isPaused = stream.status === "PAUSED";
+  const isTerminal = stream.status === "CANCELLED";
+  const isActive = stream.endTimestamp > nowSecs && !isPaused && !isTerminal;
+
+  // Freeze progress when paused
+  let progress: number;
+  let streamed: number;
+  let monthlyRate: number;
+  if (isPaused && stream.pausedRemainingDuration !== undefined) {
+    const elapsedAtPause = duration - stream.pausedRemainingDuration;
+    progress = duration > 0 ? Math.min(100, (elapsedAtPause / duration) * 100) : 0;
+    streamed = parseFloat(stream.totalAmount) - parseFloat(stream.pausedRemainingAmount ?? "0");
+    monthlyRate = 0;
+  } else {
+    const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
+    progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+    streamed = parseFloat(stream.totalAmount) * (progress / 100);
+    monthlyRate = parseFloat(stream.totalAmount) / Math.max(1, duration / (86400 * 30));
+  }
 
   const handleCopyAddress = (address: string) => {
     navigator.clipboard.writeText(address);
@@ -551,7 +677,7 @@ function StreamDetailDrawer({
                   }`}
                   style={isActive ? { animation: "breathe 4s ease-in-out infinite" } : undefined}
                 />
-                <span className="text-sm font-light">{isActive ? "Active" : "Completed"}</span>
+                <span className="text-sm font-light">{isActive ? "Active" : isPaused ? "Paused" : isTerminal ? "Cancelled" : "Completed"}</span>
               </div>
 
               <div className="h-0.5 bg-muted rounded-full overflow-hidden mb-2">
@@ -644,10 +770,55 @@ function StreamDetailDrawer({
                 </div>
               </div>
             </div>
+
+            {/* Claim Link */}
+            {claimLink && (
+              <div className="mt-4">
+                <div className="text-sm font-light mb-3">Claim Link</div>
+                <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs font-mono text-amber-400/70 truncate flex-1">
+                      {claimLink}
+                    </code>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(claimLink);
+                        toast.success("Claim link copied");
+                      }}
+                      className="shrink-0 h-6 w-6 p-0"
+                    >
+                      <Copy className="w-3 h-3 text-amber-400" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         <DrawerFooter>
+          {!isTerminal && (
+            <div className="flex gap-2">
+              {isActive && (
+                <Button variant="outline" className="flex-1" onClick={() => onPause?.(stream)} disabled={isActionPending}>
+                  <Pause className="w-4 h-4 mr-2" /> Pause
+                </Button>
+              )}
+              {isPaused && (
+                <Button variant="outline" className="flex-1" onClick={() => onResume?.(stream)} disabled={isActionPending}>
+                  <Play className="w-4 h-4 mr-2" /> Resume
+                </Button>
+              )}
+              <Button variant="outline" className="flex-1" onClick={() => onEdit?.(stream)} disabled={isActionPending}>
+                <Edit2 className="w-4 h-4 mr-2" /> Edit
+              </Button>
+              <Button variant="destructive" className="flex-1" onClick={() => onCancel?.(stream)} disabled={isActionPending}>
+                <Trash2 className="w-4 h-4 mr-2" /> Cancel
+              </Button>
+            </div>
+          )}
           <Button
             variant="outline"
             className="w-full"
@@ -663,11 +834,48 @@ function StreamDetailDrawer({
 
 function StreamsPage() {
   const navigate = useNavigate();
-  const [wizardOpen, setWizardOpen] = useState(false);
+  const { getAccessToken } = usePrivy();
+  const { recipient, batchRecipients } = Route.useSearch();
+  const batchAddresses = batchRecipients?.split(",").filter((a) => a.startsWith("0x")) ?? [];
+  const [wizardOpen, setWizardOpen] = useState(!!recipient);
+  const [batchOpen, setBatchOpen] = useState(batchAddresses.length > 0);
   const [selectedStream, setSelectedStream] = useState<LocalStream | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<LocalStream | null>(null);
+  const [editDrawerOpen, setEditDrawerOpen] = useState(false);
   const { streams } = useLocalStreams();
   const nowSecs = useNow();
+
+  // Fetch sender's claim pages to build streamId→claimLink map
+  const { data: claimsData } = useQuery({
+    queryKey: ["senderClaims"],
+    queryFn: async () => {
+      const token = await getAccessToken();
+      if (!token) return [];
+      const res = await fetch(`${config.API_URL}/claims`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      const { claims } = await res.json();
+      return claims as Array<{ id: string; stream_id: string }>;
+    },
+    staleTime: 30_000,
+  });
+
+  const claimMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of claimsData ?? []) {
+      map.set(c.stream_id, `${window.location.origin}/claim/${c.id}`);
+    }
+    return map;
+  }, [claimsData]);
+
+
+  // Stream action mutations
+  const pauseStream = usePauseStream();
+  const resumeStream = useResumeStream();
+  const cancelStream = useCancelStream();
+  const editStream = useEditStream();
 
   const handleStreamClick = (stream: LocalStream) => {
     setSelectedStream(stream);
@@ -709,11 +917,25 @@ function StreamsPage() {
         ) : (
           streams.map((stream) => {
             const duration = stream.endTimestamp - stream.startTimestamp;
-            const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
-            const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
-            const streamed = parseFloat(stream.totalAmount) * (progress / 100);
-            const isActive = stream.endTimestamp > nowSecs;
-            const monthlyRate = parseFloat(stream.totalAmount) / Math.max(1, duration / (86400 * 30));
+            const isPaused = stream.status === "PAUSED";
+            const isTerminal = stream.status === "CANCELLED";
+            const isActive = stream.endTimestamp > nowSecs && !isPaused && !isTerminal;
+
+            // Freeze progress when paused
+            let progress: number;
+            let streamed: number;
+            let monthlyRate: number;
+            if (isPaused && stream.pausedRemainingDuration !== undefined) {
+              const elapsedAtPause = duration - stream.pausedRemainingDuration;
+              progress = duration > 0 ? Math.min(100, (elapsedAtPause / duration) * 100) : 0;
+              streamed = parseFloat(stream.totalAmount) - parseFloat(stream.pausedRemainingAmount ?? "0");
+              monthlyRate = 0;
+            } else {
+              const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
+              progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+              streamed = parseFloat(stream.totalAmount) * (progress / 100);
+              monthlyRate = parseFloat(stream.totalAmount) / Math.max(1, duration / (86400 * 30));
+            }
 
             return (
               <Card
@@ -724,9 +946,28 @@ function StreamsPage() {
                 {/* Header */}
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-light text-foreground">
-                      {stream.tokenSymbol} Stream
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isActive
+                            ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                            : isPaused
+                              ? "bg-amber-400"
+                              : "bg-muted-foreground/40"
+                        }`}
+                      />
+                      <div>
+                        <h3 className="text-sm font-medium text-foreground tracking-tight">
+                          {stream.tokenSymbol} Stream
+                        </h3>
+                        <span className="text-[10px] text-muted-foreground font-mono">
+                          {stream.recipientAddress.slice(0, 6)}...{stream.recipientAddress.slice(-4)}
+                          {isPaused && " · paused"}
+                          {isTerminal && " · cancelled"}
+                        </span>
+                      </div>
+                    </div>
+
                     {stream.isPrivate && (
                       <div
                         title="private stream — sent via stealth wallet"
@@ -739,21 +980,8 @@ function StreamsPage() {
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        isActive
-                          ? "bg-white/70 shadow-[0_0_8px_rgba(255,255,255,0.4)]"
-                          : "bg-muted-foreground/40"
-                      }`}
-                      style={isActive ? { animation: "breathe 4s ease-in-out infinite" } : undefined}
-                    />
-                    <span className="text-xs text-muted-foreground">
-                      {stream.recipientAddress.slice(0, 6)}...{stream.recipientAddress.slice(-4)}
-                    </span>
-                  </div>
                   {stream.isPrivate && stream.walletAddress && (
-                    <div className="mt-2 text-[10px] text-muted-foreground/60 font-mono">
+                    <div className="mt-1 text-[10px] text-muted-foreground/60 font-mono ml-3.5">
                       wallet: {stream.walletAddress.slice(0, 6)}...{stream.walletAddress.slice(-4)}
                     </div>
                   )}
@@ -770,13 +998,19 @@ function StreamsPage() {
                   <div>
                     <div className="text-xs text-muted-foreground mb-1">Rate</div>
                     <div className="text-lg font-light font-mono">
-                      {monthlyRate.toFixed(2)}
-                      <span className="text-xs text-muted-foreground ml-1">/mo</span>
+                      {isPaused ? (
+                        <span className="text-amber-400/70 text-sm">Paused</span>
+                      ) : (
+                        <>
+                          {monthlyRate.toFixed(2)}
+                          <span className="text-xs text-muted-foreground ml-1">/mo</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Progress Bar */}
+                {/* Progress + Actions row */}
                 <div>
                   <div className="h-0.5 bg-muted rounded-full overflow-hidden">
                     <div
@@ -791,7 +1025,45 @@ function StreamsPage() {
                       )}
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground mt-2">{progress.toFixed(0)}%</div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-xs text-muted-foreground">{progress.toFixed(0)}%</span>
+                    {!isTerminal && (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          className="p-1 rounded-md text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 transition-colors"
+                          title="Edit"
+                          onClick={(e) => { e.stopPropagation(); setEditTarget(stream); setEditDrawerOpen(true); }}
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        {isActive && (
+                          <button
+                            className="p-1 rounded-md text-muted-foreground/70 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+                            title="Pause"
+                            onClick={(e) => { e.stopPropagation(); pauseStream.mutate({ stream }); }}
+                          >
+                            <Pause className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {isPaused && (
+                          <button
+                            className="p-1 rounded-md text-muted-foreground/70 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                            title="Resume"
+                            onClick={(e) => { e.stopPropagation(); resumeStream.mutate({ stream }); }}
+                          >
+                            <Play className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          className="p-1 rounded-md text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                          title="Cancel"
+                          onClick={(e) => { e.stopPropagation(); cancelStream.mutate({ stream }); }}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </Card>
             );
@@ -800,7 +1072,27 @@ function StreamsPage() {
       </div>
 
       {/* Wizard */}
-      {wizardOpen && <StreamWizard onClose={() => setWizardOpen(false)} />}
+      {wizardOpen && (
+        <StreamWizard
+          onClose={() => {
+            setWizardOpen(false);
+            if (recipient) navigate({ to: "/streams", search: {} });
+          }}
+          initialRecipient={recipient}
+        />
+      )}
+
+      {/* Batch dialog from circle "Stream to All" */}
+      {batchAddresses.length > 0 && (
+        <CSVBatchDialog
+          initialAddresses={batchAddresses}
+          externalOpen={batchOpen}
+          onExternalOpenChange={(open) => {
+            setBatchOpen(open);
+            if (!open) navigate({ to: "/streams", search: {} });
+          }}
+        />
+      )}
 
       {/* Stream Detail Drawer */}
       <StreamDetailDrawer
@@ -811,6 +1103,27 @@ function StreamsPage() {
           setDrawerOpen(false);
           navigate({ to: "/streams/$streamId", params: { streamId: id } });
         }}
+        onPause={(s) => pauseStream.mutate({ stream: s })}
+        onResume={(s) => resumeStream.mutate({ stream: s })}
+        onEdit={(s) => { setDrawerOpen(false); setEditTarget(s); setEditDrawerOpen(true); }}
+        onCancel={(s) => cancelStream.mutate({ stream: s })}
+        isActionPending={pauseStream.isPending || resumeStream.isPending || cancelStream.isPending}
+        claimLink={selectedStream?.txHash ? claimMap.get(selectedStream.txHash) : undefined}
+      />
+
+      {/* Edit Drawer */}
+      <StreamEditDrawer
+        stream={editTarget}
+        open={editDrawerOpen}
+        onOpenChange={setEditDrawerOpen}
+        onSubmit={({ newTotalAmount, newDurationSeconds }) => {
+          if (!editTarget) return;
+          editStream.mutate(
+            { stream: editTarget, newTotalAmount, newDurationSeconds, newTokenDecimals: 18 },
+            { onSuccess: () => setEditDrawerOpen(false) },
+          );
+        }}
+        isPending={editStream.isPending}
       />
 
       <style>{`

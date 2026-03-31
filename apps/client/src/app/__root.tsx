@@ -2,6 +2,7 @@ import { createRootRoute, Link, Outlet, useLocation } from "@tanstack/react-rout
 import RootProvider, { LightProvider } from "@/providers";
 import { Toaster } from "@/components/molecules/sonner";
 import { PasswordDialog } from "@/components/organisms/password-dialog";
+import { AuthGuard } from "@/components/organisms/auth-guard";
 import { AppSidebar } from "@/components/organisms/app-sidebar";
 import { SidebarInset, SidebarTrigger } from "@/components/organisms/sidebar";
 import { Separator } from "@/components/atoms/separator";
@@ -44,7 +45,7 @@ const formatPathSegment = (segment: string): string => {
 function RootLayout() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
-  const isFullscreenRoute = location.pathname.startsWith("/circles/join") || location.pathname.startsWith("/oauth/");
+  const isFullscreenRoute = location.pathname.startsWith("/circles/join") || location.pathname.startsWith("/oauth/") || location.pathname.startsWith("/claim/");
 
   const segments = location.pathname?.slice(1).split("/").filter(Boolean) || [];
 
@@ -58,10 +59,11 @@ function RootLayout() {
   }
 
   if (isHomePage || isFullscreenRoute) {
+    const isClaimRoute = location.pathname.startsWith("/claim/");
     return (
       <RootProvider>
         <Outlet />
-        <PasswordDialog />
+        {!isClaimRoute && <PasswordDialog />}
         <Toaster />
       </RootProvider>
     );
@@ -69,44 +71,46 @@ function RootLayout() {
 
   return (
     <RootProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" />
-            <Separator orientation="vertical" className="mr-2 h-4" />
-            <Breadcrumb>
-              <BreadcrumbList>
-                {segments.map((segment, index) => {
-                  const isLast = index === segments.length - 1;
-                  const href = "/" + segments.slice(0, index + 1).join("/");
-                  const formattedSegment = formatPathSegment(segment);
+      <AuthGuard>
+        <AppSidebar />
+        <SidebarInset>
+          <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+            <div className="flex items-center gap-2 px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <Breadcrumb>
+                <BreadcrumbList>
+                  {segments.map((segment, index) => {
+                    const isLast = index === segments.length - 1;
+                    const href = "/" + segments.slice(0, index + 1).join("/");
+                    const formattedSegment = formatPathSegment(segment);
 
-                  return (
-                    <div key={href} className="flex items-center gap-1.5">
-                      {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
-                      {isLast ? (
-                        <BreadcrumbItem>
-                          <BreadcrumbPage>{formattedSegment}</BreadcrumbPage>
-                        </BreadcrumbItem>
-                      ) : (
-                        <BreadcrumbItem className="hidden md:block">
-                          <BreadcrumbLink asChild>
-                            <Link to={href}>{formattedSegment}</Link>
-                          </BreadcrumbLink>
-                        </BreadcrumbItem>
-                      )}
-                    </div>
-                  );
-                })}
-              </BreadcrumbList>
-            </Breadcrumb>
-          </div>
-        </header>
-        <main className="flex-1 p-8">
-          <Outlet />
-        </main>
-      </SidebarInset>
+                    return (
+                      <div key={href} className="flex items-center gap-1.5">
+                        {index > 0 && <BreadcrumbSeparator className="hidden md:block" />}
+                        {isLast ? (
+                          <BreadcrumbItem>
+                            <BreadcrumbPage>{formattedSegment}</BreadcrumbPage>
+                          </BreadcrumbItem>
+                        ) : (
+                          <BreadcrumbItem className="hidden md:block">
+                            <BreadcrumbLink asChild>
+                              <Link to={href}>{formattedSegment}</Link>
+                            </BreadcrumbLink>
+                          </BreadcrumbItem>
+                        )}
+                      </div>
+                    );
+                  })}
+                </BreadcrumbList>
+              </Breadcrumb>
+            </div>
+          </header>
+          <main className="flex-1 p-8">
+            <Outlet />
+          </main>
+        </SidebarInset>
+      </AuthGuard>
       <PasswordDialog />
       <Toaster />
       {/* <TanStackRouterDevtools /> */}

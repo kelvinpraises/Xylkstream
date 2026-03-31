@@ -14,7 +14,7 @@ export interface ThemeProviderState {
 }
 
 const initialState: ThemeProviderState = {
-  theme: "lavender",
+  theme: "aurora",
   setTheme: () => null,
 };
 
@@ -22,7 +22,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = "lavender",
+  defaultTheme = "aurora",
   storageKey = "xylkstream-theme",
   ...props
 }: ThemeProviderProps) {

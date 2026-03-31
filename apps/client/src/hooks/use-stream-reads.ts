@@ -163,7 +163,7 @@ export function useAccountId(
   address: `0x${string}` | undefined,
 ): bigint | undefined {
   return useMemo(() => {
-    if (!driverId || !address) return undefined;
+    if (driverId === undefined || !address) return undefined;
     return calcAccountId(driverId, address);
   }, [driverId, address]);
 }

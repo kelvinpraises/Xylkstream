@@ -15,6 +15,7 @@ import {
   Bot,
   Boxes,
   Wallet,
+  Contact,
 } from "lucide-react";
 import * as React from "react";
 import { usePrivy } from "@privy-io/react-auth";
@@ -79,6 +80,11 @@ const navData = {
       title: "People",
       url: "/circles",
       icon: Users,
+    },
+    {
+      title: "Contacts",
+      url: "/contacts",
+      icon: Contact,
     },
     {
       title: "Proposals",

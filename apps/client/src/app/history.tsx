@@ -41,10 +41,20 @@ function HistoryPage() {
       ) : (
         <div className="space-y-3">
           {streams.map((stream) => {
-            const isActive = stream.endTimestamp > nowSecs;
+            const isPaused = stream.status === "PAUSED";
+            const isCancelled = stream.status === "CANCELLED";
+            const isActive = stream.endTimestamp > nowSecs && !isPaused && !isCancelled;
             const duration = stream.endTimestamp - stream.startTimestamp;
-            const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
-            const progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+
+            // Freeze progress when paused
+            let progress: number;
+            if (isPaused && stream.pausedRemainingDuration !== undefined) {
+              const elapsedAtPause = duration - stream.pausedRemainingDuration;
+              progress = duration > 0 ? Math.min(100, (elapsedAtPause / duration) * 100) : 0;
+            } else {
+              const elapsed = Math.max(0, nowSecs - stream.startTimestamp);
+              progress = duration > 0 ? Math.min(100, (elapsed / duration) * 100) : 0;
+            }
 
             return (
               <div
@@ -60,7 +70,11 @@ function HistoryPage() {
                     className={`w-2 h-2 rounded-full ${
                       isActive
                         ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)]"
-                        : "bg-muted-foreground/40"
+                        : isPaused
+                          ? "bg-amber-400/50"
+                          : isCancelled
+                            ? "bg-destructive/60"
+                            : "bg-muted-foreground/40"
                     }`}
                   />
                 </div>
@@ -80,10 +94,10 @@ function HistoryPage() {
                       </Badge>
                     )}
                     <Badge
-                      variant={isActive ? "default" : "secondary"}
+                      variant={isActive ? "default" : isPaused ? "outline" : isCancelled ? "destructive" : "secondary"}
                       className="text-[10px] py-0 px-1.5 lowercase"
                     >
-                      {isActive ? "active" : "completed"}
+                      {isActive ? "active" : isPaused ? "paused" : isCancelled ? "cancelled" : "completed"}
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground lowercase">

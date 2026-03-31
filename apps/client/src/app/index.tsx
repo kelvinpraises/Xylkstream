@@ -16,6 +16,15 @@ function LoginPage() {
     }
   }, [ready, authenticated, navigate]);
 
+  // Don't flash the login page if already authenticated
+  if (!ready || authenticated) {
+    return (
+      <div className="min-h-screen w-full bg-[#030305] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="relative min-h-screen w-full bg-[#030305] text-white overflow-hidden selection:bg-amber-500/30 font-sans overscroll-none">
       {/* Background Effects - Liquid Aurora */}

@@ -26,10 +26,17 @@ export async function deployPaymaster(
 
   const entryPoint = aa.contracts.entryPoint as Address;
 
-  // Owner/signer = OPERATOR_ADDRESS (same key does deploying, bundling, and paymaster signing)
-  const owner = (process.env.OPERATOR_ADDRESS ?? config.deployer) as Address;
+  if (!process.env.OPERATOR_ADDRESS) {
+    throw new Error(
+      `OPERATOR_ADDRESS is required to deploy the paymaster.\n` +
+      `It must match the key the server uses to sign UserOps (OPERATOR_KEY).\n\n` +
+      `  OPERATOR_ADDRESS=0x... DEPLOYER_PRIVATE_KEY=0x... npm run deploy -- --name ${config.chain}\n\n` +
+      `Without this, the paymaster's verifyingSigner will not match the server's signing key → AA34 at runtime.`
+    );
+  }
+  const verifyingSigner = process.env.OPERATOR_ADDRESS as Address;
   console.log(`  EntryPoint: ${entryPoint}`);
-  console.log(`  Owner/signer: ${owner}`);
+  console.log(`  Verifying signer: ${verifyingSigner}`);
 
   // 1. Deploy VerifyingPaymaster(entryPoint, verifyingSigner)
   // XylkPaymaster: explicit owner (deployer) + verifyingSigner (executor)
@@ -37,7 +44,7 @@ export async function deployPaymaster(
   const paymaster = await deployFromArtifact(
     walletClient, client,
     "out/XylkPaymaster.sol/XylkPaymaster.json",
-    [entryPoint, owner, config.deployer],
+    [entryPoint, verifyingSigner, config.deployer],
     undefined, "xylkstream.verifyingPaymaster"
   );
 
