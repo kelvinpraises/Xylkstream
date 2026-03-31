@@ -12,12 +12,34 @@ import {
   DialogTrigger,
 } from "@/components/molecules/dialog";
 import { toast } from "sonner";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/atoms/select";
+import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
 import { useCreateStream } from "@/hooks/use-stream-create";
 import { useChain } from "@/providers/chain-provider";
 import { getSendableTokens } from "@/config/chains";
 import { getPublicClient, erc20Abi } from "@/utils/streams";
 
 const DEFAULT_DURATION_SECONDS = 30 * 24 * 60 * 60; // 30 days
+
+type TimeUnit = "minutes" | "hours" | "days" | "weeks" | "months";
+
+const toSeconds = (value: number, unit: TimeUnit) => {
+  const multipliers: Record<TimeUnit, number> = {
+    minutes: 60,
+    hours: 3600,
+    days: 86400,
+    weeks: 604800,
+    months: 2592000,
+  };
+  return value * multipliers[unit];
+};
 
 interface ParsedRow {
   recipient: string;
@@ -49,7 +71,15 @@ function parseCSV(text: string): ParsedRow[] {
     .filter((row) => row.recipient && row.amount);
 }
 
-export function CSVBatchDialog() {
+export function CSVBatchDialog({
+  initialAddresses,
+  externalOpen,
+  onExternalOpenChange,
+}: {
+  initialAddresses?: string[];
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
+} = {}) {
   const sendStream = useCreateStream();
   const { chainConfig } = useChain();
   const tokens = getSendableTokens(chainConfig.contracts);
@@ -60,13 +90,38 @@ export function CSVBatchDialog() {
     return match?.address ?? tokens[0]?.address ?? "";
   };
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [rows, setRows] = useState<ParsedRow[]>([]);
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [rows, setRows] = useState<ParsedRow[]>(() => {
+    if (initialAddresses?.length) {
+      return initialAddresses.map((addr) => ({
+        recipient: addr,
+        amount: "",
+        token: tokens[0]?.symbol ?? "USDT",
+      }));
+    }
+    return [];
+  });
+  const [fileName, setFileName] = useState<string | null>(
+    initialAddresses?.length ? "circle members" : null,
+  );
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<SendResult[]>([]);
   const [progress, setProgress] = useState(0);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const dialogOpen = externalOpen ?? internalOpen;
+  const setDialogOpen = onExternalOpenChange ?? setInternalOpen;
   const [isDragging, setIsDragging] = useState(false);
+
+  const isBatchMode = !!initialAddresses?.length;
+  const [totalAmount, setTotalAmount] = useState("");
+  const [selectedTokenAddr, setSelectedTokenAddr] = useState<string>(tokens[0]?.address ?? "");
+  const [durationValue, setDurationValue] = useState(3);
+  const [durationUnit, setDurationUnit] = useState<TimeUnit>("months");
+
+  const selectedToken = tokens.find((t) => t.address === selectedTokenAddr);
+  const splitAmount =
+    isBatchMode && rows.length > 0 && totalAmount && parseFloat(totalAmount) > 0
+      ? (parseFloat(totalAmount) / rows.length).toString()
+      : "";
 
   const handleFile = useCallback((file: File | undefined) => {
     if (!file) return;
@@ -100,30 +155,56 @@ export function CSVBatchDialog() {
 
   const handleSendAll = useCallback(async () => {
     if (rows.length === 0) return;
+    if (isBatchMode && (!totalAmount || parseFloat(totalAmount) <= 0)) {
+      toast.error("Please enter a total amount");
+      return;
+    }
     setSending(true);
     setResults([]);
     setProgress(0);
 
     const allResults: SendResult[] = [];
 
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const tokenAddress = resolveTokenAddress(row.token) as `0x${string}`;
+    // In batch mode, resolve token + decimals once before the loop
+    const batchTokenAddr = isBatchMode ? (selectedTokenAddr as `0x${string}`) : undefined;
+    const batchAmount = isBatchMode ? (parseFloat(totalAmount) / rows.length).toString() : undefined;
+    const batchDuration = isBatchMode ? toSeconds(durationValue, durationUnit) : DEFAULT_DURATION_SECONDS;
+    const batchSymbol = isBatchMode ? (selectedToken?.symbol ?? "TOKEN") : undefined;
+
+    let batchDecimals: number | undefined;
+    if (batchTokenAddr) {
       const client = getPublicClient(chainConfig.chain);
-      const tokenDecimals = await client.readContract({
-        address: tokenAddress,
+      batchDecimals = (await client.readContract({
+        address: batchTokenAddr,
         abi: erc20Abi,
         functionName: "decimals",
-      }) as number;
+      })) as number;
+    }
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const tokenAddress = batchTokenAddr ?? (resolveTokenAddress(row.token) as `0x${string}`);
+      let tokenDecimals: number;
+
+      if (batchDecimals !== undefined) {
+        tokenDecimals = batchDecimals;
+      } else {
+        const client = getPublicClient(chainConfig.chain);
+        tokenDecimals = (await client.readContract({
+          address: tokenAddress,
+          abi: erc20Abi,
+          functionName: "decimals",
+        })) as number;
+      }
 
       try {
         const result = await sendStream.mutateAsync({
           recipientAddress: row.recipient as `0x${string}`,
           tokenAddress,
-          totalAmount: row.amount,
+          totalAmount: batchAmount ?? row.amount,
           tokenDecimals,
-          durationSeconds: DEFAULT_DURATION_SECONDS,
-          tokenSymbol: row.token,
+          durationSeconds: batchDuration,
+          tokenSymbol: batchSymbol ?? row.token,
         });
         allResults.push({ index: i, success: true, txHash: result.txHash });
       } catch (err) {
@@ -148,24 +229,28 @@ export function CSVBatchDialog() {
     }
 
     setSending(false);
-  }, [rows, sendStream]);
+  }, [rows, sendStream, isBatchMode, totalAmount, selectedTokenAddr, durationValue, durationUnit, selectedToken, chainConfig]);
 
   const successCount = results.filter((r) => r.success).length;
   const failCount = results.filter((r) => !r.success).length;
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <DialogTrigger asChild>
-        <button className="px-6 py-4 text-lg rounded-full border border-border text-foreground font-medium hover:border-primary/50 transition-all flex items-center gap-2">
-          <Upload className="w-4 h-4" />
-          <span className="lowercase">send to many</span>
-        </button>
-      </DialogTrigger>
+      {externalOpen === undefined && (
+        <DialogTrigger asChild>
+          <button className="px-6 py-4 text-lg rounded-full border border-border text-foreground font-medium hover:border-primary/50 transition-all flex items-center gap-2">
+            <Upload className="w-4 h-4" />
+            <span className="lowercase">send to many</span>
+          </button>
+        </DialogTrigger>
+      )}
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Send to Multiple People</DialogTitle>
+          <DialogTitle>{isBatchMode ? "Stream to All Members" : "Send to Multiple People"}</DialogTitle>
           <DialogDescription>
-            Upload a CSV file with recipients and amounts to batch-send payments.
+            {isBatchMode
+              ? "Configure token, amount, and duration — split evenly across all members."
+              : "Upload a CSV file with recipients and amounts to batch-send payments."}
           </DialogDescription>
         </DialogHeader>
 
@@ -230,12 +315,75 @@ export function CSVBatchDialog() {
                     {rows.length} {rows.length === 1 ? "row" : "rows"}
                   </Badge>
                 </div>
-                {!sending && results.length === 0 && (
+                {!sending && results.length === 0 && !isBatchMode && (
                   <Button variant="ghost" size="sm" onClick={handleReset}>
                     Clear
                   </Button>
                 )}
               </div>
+
+              {/* Batch Controls — token, total amount, duration */}
+              {isBatchMode && !sending && results.length === 0 && (
+                <div className="space-y-4 rounded-xl border border-amber-500/10 bg-amber-500/5 p-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Token</Label>
+                    <Select value={selectedTokenAddr} onValueChange={setSelectedTokenAddr}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select token" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tokens.map((t) => (
+                          <SelectItem key={t.address} value={t.address}>
+                            {t.symbol}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">
+                      Total Amount
+                      {splitAmount && (
+                        <span className="text-muted-foreground/60 ml-1">
+                          ({parseFloat(splitAmount).toFixed(2)} {selectedToken?.symbol} each)
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="e.g., 1000"
+                      value={totalAmount}
+                      onChange={(e) => setTotalAmount(e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground mb-1.5 block">Duration</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min="1"
+                        value={durationValue}
+                        onChange={(e) => setDurationValue(parseInt(e.target.value) || 1)}
+                        className="w-20"
+                      />
+                      <Select value={durationUnit} onValueChange={(v) => setDurationUnit(v as TimeUnit)}>
+                        <SelectTrigger className="w-[120px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(["minutes", "hours", "days", "weeks", "months"] as TimeUnit[]).map((unit) => (
+                            <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-xl border border-border overflow-hidden max-h-[300px] overflow-y-auto">
                 <table className="w-full text-sm">
@@ -257,8 +405,14 @@ export function CSVBatchDialog() {
                         <tr key={i} className="border-b border-border/50 last:border-0">
                           <td className="p-3 text-muted-foreground text-xs">{i + 1}</td>
                           <td className="p-3 font-mono text-xs truncate max-w-[200px]">{row.recipient}</td>
-                          <td className="p-3 font-mono text-xs">{row.amount}</td>
-                          <td className="p-3 text-xs">{row.token}</td>
+                          <td className="p-3 font-mono text-xs">
+                            {isBatchMode
+                              ? (splitAmount ? parseFloat(splitAmount).toFixed(2) : "—")
+                              : row.amount}
+                          </td>
+                          <td className="p-3 text-xs">
+                            {isBatchMode ? (selectedToken?.symbol ?? row.token) : row.token}
+                          </td>
                           {results.length > 0 && (
                             <td className="p-3">
                               {result ? (
@@ -317,19 +471,21 @@ export function CSVBatchDialog() {
               <div className="flex justify-end gap-2">
                 {results.length > 0 && !sending ? (
                   <>
-                    <Button variant="outline" onClick={handleReset}>
-                      New Batch
-                    </Button>
+                    {!isBatchMode && (
+                      <Button variant="outline" onClick={handleReset}>
+                        New Batch
+                      </Button>
+                    )}
                     <Button onClick={() => setDialogOpen(false)}>
                       Done
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" onClick={handleReset} disabled={sending}>
+                    <Button variant="outline" onClick={isBatchMode ? () => setDialogOpen(false) : handleReset} disabled={sending}>
                       Cancel
                     </Button>
-                    <Button onClick={handleSendAll} disabled={sending}>
+                    <Button onClick={handleSendAll} disabled={sending || (isBatchMode && (!totalAmount || parseFloat(totalAmount) <= 0))}>
                       {sending ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />

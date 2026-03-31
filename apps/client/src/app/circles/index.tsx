@@ -17,7 +17,7 @@ import {
 } from "@/components/molecules/dialog";
 import { toast } from "sonner";
 import { nanoid } from "nanoid";
-import { useCircles, useCreateCircle, ApiError } from "@/hooks/use-circles";
+import { useCircles, useJoinedCircles, useCreateCircle, ApiError } from "@/hooks/use-circles";
 import { useCircleCrypto } from "@/hooks/use-circle-crypto";
 
 export const Route = createFileRoute("/circles/")({
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/circles/")({
 
 function CirclesPage() {
   const { data: circles, isLoading, error } = useCircles();
+  const { data: joinedCircles, isLoading: isLoadingJoined } = useJoinedCircles();
   const createCircle = useCreateCircle();
   const circleCrypto = useCircleCrypto();
 
@@ -227,58 +228,118 @@ function CirclesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Circles List */}
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Loader2 className="w-4 h-4 animate-spin" />
-          Loading circles...
-        </div>
-      ) : error && !(error instanceof ApiError && error.status === 401) ? (
-        <Card className="p-8 text-center border border-border">
-          <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : "Failed to load circles"}
-          </p>
-        </Card>
-      ) : !circles || circles.length === 0 ? (
-        <Card className="p-12 text-center border border-border">
-          <div className="max-w-md mx-auto">
-            <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">No circles yet</h3>
-            <p className="text-sm text-muted-foreground">
-              Create a circle to send payments to a private group of people at once
-            </p>
+      {/* My Circles (owned) */}
+      <section className="mb-10">
+        <h2 className="text-lg font-medium text-foreground mb-4">My Circles</h2>
+        {isLoading ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading circles...
           </div>
-        </Card>
-      ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {circles.map((circle) => (
-            <Link key={circle.id} to="/circles/$circleId" params={{ circleId: String(circle.id) }}>
-              <Card className="group relative p-5 border border-border hover:border-primary/30 transition-all cursor-pointer h-full">
+        ) : error && !(error instanceof ApiError && error.status === 401) ? (
+          <Card className="p-8 text-center border border-border">
+            <p className="text-sm text-destructive">
+              {error instanceof Error ? error.message : "Failed to load circles"}
+            </p>
+          </Card>
+        ) : !circles || circles.length === 0 ? (
+          <Card className="p-12 text-center border border-border">
+            <div className="max-w-md mx-auto">
+              <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No circles yet</h3>
+              <p className="text-sm text-muted-foreground">
+                Create a circle to send payments to a private group of people at once
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {circles.map((circle) => (
+              <Link key={circle.id} to="/circles/$circleId" params={{ circleId: String(circle.id) }}>
+                <Card className="group relative p-5 border border-border hover:border-primary/30 transition-all cursor-pointer h-full">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-medium text-foreground truncate">
+                        {circle.name}
+                      </h3>
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                        <span className="text-sm text-muted-foreground">
+                          {circle.member_count} {circle.member_count === 1 ? "member" : "members"}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="lowercase text-xs shrink-0 ml-2">
+                      <Link2 className="w-3 h-3 mr-1" />
+                      invite
+                    </Badge>
+                  </div>
+                  <div className="mt-3 text-xs text-muted-foreground/60">
+                    created {new Date(circle.created_at).toLocaleDateString()}
+                  </div>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Circles I've Joined */}
+      <section>
+        <h2 className="text-lg font-medium text-foreground mb-4">Circles I've Joined</h2>
+        {isLoadingJoined ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Loading joined circles...
+          </div>
+        ) : !joinedCircles || joinedCircles.length === 0 ? (
+          <Card className="p-12 text-center border border-border">
+            <div className="max-w-md mx-auto">
+              <Users className="w-10 h-10 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-lg font-medium mb-2">No joined circles</h3>
+              <p className="text-sm text-muted-foreground">
+                Join a circle via an invite link to see it here
+              </p>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {joinedCircles.map((jc) => (
+              <Card
+                key={jc.circleId}
+                className="group relative p-5 border border-border hover:border-primary/20 transition-all h-full"
+              >
                 <div className="flex items-start justify-between mb-3">
                   <div className="min-w-0 flex-1">
                     <h3 className="text-base font-medium text-foreground truncate">
-                      {circle.name}
+                      {jc.circleName}
                     </h3>
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <Users className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                       <span className="text-sm text-muted-foreground">
-                        {circle.member_count} {circle.member_count === 1 ? "member" : "members"}
+                        {jc.memberCount} {jc.memberCount === 1 ? "member" : "members"}
                       </span>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="lowercase text-xs shrink-0 ml-2">
-                    <Link2 className="w-3 h-3 mr-1" />
-                    invite
+                  <Badge
+                    variant={
+                      jc.status === "approved" ? "secondary"
+                        : jc.status === "rejected" ? "destructive"
+                        : "outline"
+                    }
+                    className="text-xs shrink-0 ml-2"
+                  >
+                    {jc.status}
                   </Badge>
                 </div>
                 <div className="mt-3 text-xs text-muted-foreground/60">
-                  created {new Date(circle.created_at).toLocaleDateString()}
+                  joined {new Date(jc.joinedAt).toLocaleDateString()}
                 </div>
               </Card>
-            </Link>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

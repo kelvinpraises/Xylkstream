@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useCallback } from "react";
-import { UserPlus, Trash2, Copy, Mail } from "lucide-react";
+import { UserPlus, Trash2, Copy, Mail, Send } from "lucide-react";
 import { Card } from "@/components/molecules/card";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
@@ -44,13 +44,13 @@ function saveContacts(contacts: Contact[]) {
 }
 
 function ContactsPage() {
+  const navigate = useNavigate();
   const [contacts, setContacts] = useState<Contact[]>(() => loadContacts());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newWallet, setNewWallet] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [isResolving] = useState(false);
 
   const handleAddContact = useCallback(async () => {
     if (!newName.trim()) {
@@ -68,7 +68,7 @@ function ContactsPage() {
       id: crypto.randomUUID(),
       name: newName.trim(),
       email: newEmail.trim(),
-      walletAddress: walletAddress || "looking up address...",
+      walletAddress: walletAddress,
       addedAt: new Date().toISOString(),
     };
 
@@ -162,7 +162,7 @@ function ContactsPage() {
                     onKeyDown={(e) => e.key === "Enter" && handleAddContact()}
                   />
                   <p className="text-xs text-muted-foreground mt-1 lowercase">
-                    leave blank to resolve from email later
+                    their xylkstream privacy address
                   </p>
                 </div>
               </div>
@@ -170,15 +170,9 @@ function ContactsPage() {
                 <Button variant="outline" onClick={() => setDialogOpen(false)} className="lowercase">
                   cancel
                 </Button>
-                <Button onClick={handleAddContact} disabled={isResolving} className="lowercase">
-                  {isResolving ? (
-                    <>resolving email...</>
-                  ) : (
-                    <>
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      add contact
-                    </>
-                  )}
+                <Button onClick={handleAddContact} className="lowercase">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  add contact
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -238,22 +232,34 @@ function ContactsPage() {
                     <span className="truncate">{contact.email}</span>
                   </button>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDeleteContact(contact.id)}
-                  className="shrink-0 h-8 w-8 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  {contact.walletAddress && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => navigate({
+                        to: "/streams",
+                        search: { recipient: contact.walletAddress },
+                      })}
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Send payment"
+                    >
+                      <Send className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleDeleteContact(contact.id)}
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">
-                {contact.walletAddress === "looking up address..." ? (
-                  <Badge variant="secondary" className="lowercase text-xs">
-                    looking up address...
-                  </Badge>
-                ) : (
+                {contact.walletAddress ? (
                   <button
                     onClick={() => handleCopy(contact.walletAddress, "address")}
                     className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors"
@@ -263,6 +269,10 @@ function ContactsPage() {
                     </span>
                     <Copy className="w-3 h-3" />
                   </button>
+                ) : (
+                  <Badge variant="secondary" className="lowercase text-xs">
+                    no address
+                  </Badge>
                 )}
               </div>
 

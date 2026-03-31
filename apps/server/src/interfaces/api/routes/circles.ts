@@ -94,6 +94,16 @@ export function createCirclesRouter(): Router {
     }
   });
 
+  // GET /joined — list circles where the authenticated user is a member
+  router.get("/joined", async (req: Request, res: Response) => {
+    try {
+      const circles = await circleService.listByMember(req.userId!);
+      res.json({ circles });
+    } catch {
+      res.status(500).json({ error: "Failed to list joined circles" });
+    }
+  });
+
   // GET /:id — get circle detail with members (owner only)
   router.get("/:id", async (req: Request, res: Response) => {
     const circleId = Number(req.params.id);

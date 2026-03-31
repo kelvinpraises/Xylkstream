@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   Share2,
   X,
+  UserPlus,
 } from "lucide-react";
 import { Card } from "@/components/molecules/card";
 import { Button } from "@/components/atoms/button";
@@ -212,8 +213,34 @@ function CircleDetailPage() {
       toast.error("No member addresses available yet");
       return;
     }
-    toast.info(`${addresses.length} addresses ready — wire to stream creation`);
-  }, [decryptedAddresses]);
+    navigate({
+      to: "/streams",
+      search: { batchRecipients: addresses.join(",") },
+    });
+  }, [decryptedAddresses, navigate]);
+
+  const handleSaveAsContact = useCallback((addr: string) => {
+    const STORAGE_KEY = "xylkstream_contacts";
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const contacts = raw ? JSON.parse(raw) : [];
+      if (contacts.some((c: { walletAddress: string }) => c.walletAddress === addr)) {
+        toast.info("Already in contacts");
+        return;
+      }
+      contacts.push({
+        id: crypto.randomUUID(),
+        name: truncateAddress(addr),
+        email: "",
+        walletAddress: addr,
+        addedAt: new Date().toISOString(),
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(contacts));
+      toast.success("Saved to contacts");
+    } catch {
+      toast.error("Failed to save contact");
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -438,6 +465,17 @@ function CircleDetailPage() {
                       </div>
 
                       <div className="flex items-center gap-1 shrink-0">
+                        {addr && addr.startsWith("0x") && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSaveAsContact(addr)}
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Save as contact"
+                          >
+                            <UserPlus className="w-4 h-4" />
+                          </Button>
+                        )}
                         {member.status !== "approved" && (
                           <Button
                             variant="ghost"

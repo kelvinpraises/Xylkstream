@@ -43,6 +43,33 @@ export const circleService = {
     return result;
   },
 
+  async listByMember(userId: number) {
+    const db = getDatabase();
+    const rows = await db
+      .selectFrom("circle_members")
+      .innerJoin("circles", "circles.id", "circle_members.circle_id")
+      .select([
+        "circles.id as circleId",
+        "circles.name as circleName",
+        "circle_members.status",
+        "circle_members.joined_at as joinedAt",
+      ])
+      .where("circle_members.user_id", "=", userId)
+      .orderBy("circle_members.joined_at", "desc")
+      .execute();
+
+    const result = [];
+    for (const row of rows) {
+      const count = await db
+        .selectFrom("circle_members")
+        .where("circle_id", "=", row.circleId)
+        .select(db.fn.countAll().as("count"))
+        .executeTakeFirst();
+      result.push({ ...row, memberCount: Number(count?.count ?? 0) });
+    }
+    return result;
+  },
+
   async getById(
     circleId: number,
     userId: number,

@@ -58,6 +58,25 @@ export function useCircles() {
   });
 }
 
+export interface JoinedCircleItem {
+  circleId: number;
+  circleName: string;
+  status: "pending" | "approved" | "rejected";
+  joinedAt: string;
+  memberCount: number;
+}
+
+export function useJoinedCircles() {
+  const { getAccessToken, ready, authenticated } = usePrivy();
+  return useQuery({
+    queryKey: ["circles", "joined"],
+    queryFn: () => circlesApi("/joined", getAccessToken),
+    select: (data) => data.circles as JoinedCircleItem[],
+    enabled: ready && authenticated,
+    retry: (count, error) => error instanceof ApiError && error.status === 401 ? false : count < 3,
+  });
+}
+
 export interface CircleListItem {
   id: number;
   name: string;
