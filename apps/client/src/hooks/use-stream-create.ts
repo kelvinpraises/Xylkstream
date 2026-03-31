@@ -6,14 +6,16 @@ import { createWalletClient, custom, encodeFunctionData, parseUnits } from "viem
 import {
   addressDriverAbi,
   erc20Abi,
-  iDripsAbi,
   calcAmtPerSec,
   packStreamConfig,
   getPublicClient,
 } from "@/utils/streams";
 import { useChain } from "@/providers/chain-provider";
 import { addStream, getStreams } from "@/store/stream-store";
+import { registerWallet } from "@/store/wallet-registry";
 import { useStealthWallet } from "@/providers/stealth-wallet-provider";
+import { findNextUnusedIndex } from "@/utils/wallet-scanner";
+import { getSendableTokens } from "@/config/chains";
 
 /**
  * Build the currReceivers array from existing active localStorage streams
@@ -26,12 +28,15 @@ function buildCurrReceivers(
   tokenAddress: string,
   _nowSecs: number,
 ) {
-  // Include ALL streams for this sender+token — expired streams remain in the
+  // Include active streams for this sender+token — expired streams remain in the
   // on-chain receiver set until explicitly removed via setStreams.
+  // Exclude PAUSED and CANCELLED streams (already removed on-chain).
   const existing = getStreams(chainId).filter(
     (s) =>
       s.accountId.toLowerCase() === senderAccountId.toLowerCase() &&
-      s.tokenAddress.toLowerCase() === tokenAddress.toLowerCase(),
+      s.tokenAddress.toLowerCase() === tokenAddress.toLowerCase() &&
+      s.status !== "PAUSED" &&
+      s.status !== "CANCELLED",
   );
   // Must be sorted by (accountId, config) ascending — Drips enforces ordering
   return existing
@@ -62,47 +67,6 @@ function nextStreamId(chainId: number, senderAccountId: string, tokenAddress: st
   );
   const maxId = existing.reduce((max, s) => Math.max(max, s.dripsStreamId ?? 1), 0);
   return maxId + 1;
-}
-
-/**
- * Get the next available wallet derivation index for per-stream wallets.
- * Checks on-chain streamsState to skip wallets that already have active streams
- * (e.g. when localStorage was cleared but on-chain state persists).
- */
-async function nextWalletIndex(
-  chainId: number,
-  stealthWallet: ReturnType<typeof useStealthWallet>,
-  publicClient: ReturnType<typeof getPublicClient>,
-  contracts: { addressDriver: `0x${string}`; dripsProxy: `0x${string}` },
-  tokenAddress: `0x${string}`,
-): Promise<number> {
-  // Start from localStorage hint (fast path when storage is intact)
-  const existing = getStreams(chainId).filter((s) => s.isPrivate && s.walletIndex !== undefined);
-  let candidate = existing.length === 0 ? 1 : Math.max(...existing.map((s) => s.walletIndex!)) + 1;
-
-  // Walk forward until we find a wallet with no on-chain streams for this token
-  const MAX_SCAN = 20; // safety bound
-  for (let i = 0; i < MAX_SCAN; i++) {
-    const { address: walletAddr } = await stealthWallet.getAccountAtIndex(candidate);
-    const accountId = await publicClient.readContract({
-      address: contracts.addressDriver,
-      abi: addressDriverAbi,
-      functionName: "calcAccountId",
-      args: [walletAddr as `0x${string}`],
-    });
-    const [streamsHash] = await publicClient.readContract({
-      address: contracts.dripsProxy,
-      abi: iDripsAbi,
-      functionName: "streamsState",
-      args: [accountId, tokenAddress],
-    });
-    // Zero hash means no streams have ever been set from this wallet+token
-    if (streamsHash === "0x0000000000000000000000000000000000000000000000000000000000000000") {
-      return candidate;
-    }
-    candidate++;
-  }
-  throw new Error("Could not find an unused derived wallet index within scan limit.");
 }
 
 // --- types ---
@@ -268,7 +232,12 @@ export function useCreateStream() {
       }
 
       // Each stream gets its own derived wallet for isolation
-      const walletIndex = await nextWalletIndex(chainId, stealthWallet, publicClient, contracts, tokenAddress);
+      const tokens = getSendableTokens(chainConfig.contracts);
+      const getAccount = async (idx: number) => {
+        const { address } = await stealthWallet.getAccountAtIndex(idx);
+        return { address };
+      };
+      const walletIndex = await findNextUnusedIndex(getAccount, publicClient, contracts, tokens, chainId);
       const { address: streamWalletAddress } =
         await stealthWallet.getAccountAtIndex(walletIndex);
 
@@ -311,8 +280,10 @@ export function useCreateStream() {
         { to: contracts.addressDriver, data: setStreamsCalldata, value: 0n },
       ]);
 
+      const streamId2 = crypto.randomUUID();
+
       addStream({
-        id: crypto.randomUUID(),
+        id: streamId2,
         chainId,
         accountId: streamWalletAddress,
         recipientAddress,
@@ -331,6 +302,16 @@ export function useCreateStream() {
         createdAt: new Date().toISOString(),
       });
 
+      // Register the derived wallet so the wallet page can display it
+      registerWallet(chainId, {
+        index: walletIndex,
+        address: streamWalletAddress,
+        type: "stream",
+        entityId: streamId2,
+        label: `${tokenSymbol} → ${recipientAddress.slice(0, 6)}...${recipientAddress.slice(-4)}`,
+        createdAt: new Date().toISOString(),
+      });
+
       return {
         txHash: result.hash as `0x${string}`,
         receiverAccountId,
@@ -340,6 +321,8 @@ export function useCreateStream() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["localStreams"] });
       queryClient.invalidateQueries({ queryKey: ["tokenBalance"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-registry"] });
+      queryClient.invalidateQueries({ queryKey: ["wallet-discovery"] });
     },
   });
 }

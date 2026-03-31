@@ -9,6 +9,7 @@ export interface WalletEntry {
   entityId: string;
   label?: string;
   createdAt: string;
+  isOrphan?: boolean;
 }
 
 export interface MainWalletConfig {
@@ -59,6 +60,20 @@ export function removeEntry(chainId: number, entityId: string) {
   saveRegistry(chainId, entries);
 }
 
+/** Insert only if no entry with the same index already exists. */
+export function registerIfAbsent(chainId: number, entry: WalletEntry) {
+  const entries = getRegistry(chainId);
+  if (entries.some((e) => e.index === entry.index)) return;
+  entries.push(entry);
+  saveRegistry(chainId, entries);
+}
+
+/** Remove entries whose index is NOT in the active set. */
+export function removeEmptyWallets(chainId: number, activeIndices: Set<number>) {
+  const entries = getRegistry(chainId).filter((e) => activeIndices.has(e.index));
+  saveRegistry(chainId, entries);
+}
+
 export function getEntryByEntity(chainId: number, entityId: string): WalletEntry | undefined {
   return getRegistry(chainId).find((e) => e.entityId === entityId);
 }
@@ -66,7 +81,9 @@ export function getEntryByEntity(chainId: number, entityId: string): WalletEntry
 // --- Privacy mode ---
 
 export function getPrivacyMode(): boolean {
-  return localStorage.getItem(PRIVACY_MODE_KEY) === "true";
+  const stored = localStorage.getItem(PRIVACY_MODE_KEY);
+  if (stored === null) return true;
+  return stored === "true";
 }
 
 export function setPrivacyMode(enabled: boolean) {
@@ -86,7 +103,7 @@ export function useWalletRegistry(chainId: number) {
 export function usePrivacyMode() {
   const qc = useQueryClient();
 
-  const { data: enabled = false } = useQuery({
+  const { data: enabled = true } = useQuery({
     queryKey: ["privacy-mode"],
     queryFn: () => getPrivacyMode(),
     staleTime: Infinity,
